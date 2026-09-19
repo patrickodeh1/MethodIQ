@@ -474,8 +474,21 @@ def ai_generate_task(topic_id: int, request: Request, db: Session = Depends(get_
         return RedirectResponse(url="/admin", status_code=303)
 
     existing_titles = [t.title for t in topic.tasks]
+    prior_topics = [
+        {"name": t.name, "goal": t.goal}
+        for t in topic.course.topics
+        if t.order < topic.order
+    ]
     try:
-        draft = generate_task_draft(topic.course.name, topic.name, topic.goal, existing_titles)
+        draft = generate_task_draft(
+            topic.course.name,
+            topic.course.description,
+            topic.name,
+            topic.description,
+            topic.goal,
+            prior_topics,
+            existing_titles,
+        )
     except RuntimeError as exc:
         return RedirectResponse(
             url=f"/admin/courses/{topic.course_id}?ai_error={quote(str(exc))}", status_code=303

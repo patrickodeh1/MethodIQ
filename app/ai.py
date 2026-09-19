@@ -1,12 +1,43 @@
 import json
+import re
 import httpx
 
 from app.config import GROQ_API_KEY, GROQ_MODEL, GROQ_API_URL
 
-SYSTEM_PROMPT = """You generate a single coding exercise. Output only JSON with
-title, description, starter_code, entry_type, entry_function, class_name and
-test_cases. Include at least four valid test cases, exactly one sample, and do
-not repeat existing task titles."""
+SYSTEM_PROMPT = """You generate ONE coding exercise for a self-paced,
+task-based course. You will be given the course's description, the current
+topic's description and goal, and a summary of topics already completed
+earlier in the course. Use ALL of this context to judge the student's current
+skill level and infer what concepts, syntax, and difficulty are appropriate
+right now.
+
+Ground rules:
+- The exercise must be solvable using only what the course description and
+  the topics-so-far summary establish the student already knows, plus what
+  the current topic's own description and goal teach. Do not assume knowledge
+  from topics that come later in the course.
+- Match the tone and level of the course/topic descriptions you're given: if
+  they describe an absolute-beginner, self-paced course, write a small,
+  concrete, plainly-worded exercise, not a competitive-programming problem.
+- Pick entry_type based on what fits the topic's own material, not a default.
+- Test cases should directly verify the topic's goal in a straightforward
+  way, not test edge cases beyond what the topic covers.
+- Output only JSON with: title, description, starter_code, entry_type,
+  entry_function, class_name, test_cases. Include at least four valid test
+  cases, exactly one marked as sample, and do not repeat existing task titles.
+"""
+
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _strip_html(text: str) -> str:
+    """Strip HTML tags from Quill-editor content before sending it to the model."""
+    if not text:
+        return ""
+    text = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", text, flags=re.IGNORECASE | re.DOTALL)
+    text = _TAG_RE.sub(" ", text)
+    text = text.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def _post(messages, temperature=0.7, json_mode=False):
@@ -26,12 +57,30 @@ def _post(messages, temperature=0.7, json_mode=False):
         raise RuntimeError(f"Could not get a response from Groq: {exc}")
 
 
-def generate_task_draft(program_name: str, stage_name: str, stage_goal: str, existing_task_titles: list) -> dict:
+def generate_task_draft(
+    course_name: str,
+    course_description: str,
+    topic_name: str,
+    topic_description: str,
+    stage_goal: str,
+    prior_topics: list,
+    existing_task_titles: list,
+) -> dict:
     if not GROQ_API_KEY:
         raise RuntimeError("GROQ_API_KEY is not set in .env - add your Groq API key first.")
+
+    prior_summary = "\n".join(
+        f"- {t['name']}: {t['goal'] or '(no goal set)'}" for t in prior_topics
+    ) or "(this is the first topic in the course)"
+
     prompt = (
-        f"Program: {program_name}\nStage: {stage_name}\nGoal: {stage_goal or '(none)'}\n"
-        f"Existing titles: {', '.join(existing_task_titles) or '(none)'}\n"
+        f"Course: {course_name}\n"
+        f"Course description: {_strip_html(course_description) or '(none)'}\n\n"
+        f"Topics already completed earlier in this course, in order:\n{prior_summary}\n\n"
+        f"Current topic: {topic_name}\n"
+        f"Current topic description: {_strip_html(topic_description) or '(none)'}\n"
+        f"Current topic goal: {stage_goal or '(none)'}\n\n"
+        f"Existing task titles in this topic (do not repeat): {', '.join(existing_task_titles) or '(none)'}\n\n"
         "Use this JSON schema: title, description, starter_code, entry_type, "
         "entry_function, class_name, test_cases. Each test case has input_json, "
         "expected_json and is_sample."
