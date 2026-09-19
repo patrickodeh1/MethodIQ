@@ -19,10 +19,32 @@ app.include_router(admin.router)
 app.include_router(admin.staff_router)
 
 
+def _should_audit_request(path: str, method: str) -> bool:
+    """Keep the audit trail focused on authentication and meaningful actions."""
+    if path in {"/login", "/admin/login"}:
+        return method == "POST"
+    if path in {"/logout", "/admin/logout"}:
+        return method == "GET"
+    if method not in {"POST", "PUT", "PATCH", "DELETE"}:
+        return False
+    return (
+        path.startswith("/admin/courses")
+        or path.startswith("/admin/topics")
+        or path.startswith("/admin/tasks")
+        or path.startswith("/admin/testcases")
+        or path.startswith("/admin/students")
+        or path.startswith("/admin/staff")
+        or path.startswith("/admin/publish")
+        or path.startswith("/staff/tasks")
+        or path.startswith("/staff/students")
+        or path.startswith("/task/")
+    )
+
+
 @app.middleware("http")
 async def audit_requests(request: Request, call_next):
     response = await call_next(request)
-    if not request.url.path.startswith("/static"):
+    if _should_audit_request(request.url.path, request.method):
         admin_session = get_admin_session(request)
         student_id = get_current_student_id(request)
         if admin_session:
