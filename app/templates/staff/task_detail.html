@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}{{ task.title }}{% endblock %}
+{% block header_right %}<a href="/staff/courses/{{ task.topic.course_id }}" class="btn secondary">Back to course</a>{% endblock %}
+{% block content %}
+<h1>{{ task.title }}</h1>
+<p class="muted">{{ task.topic.name }} · {{ task.topic.course.name }} · {{ task.entry_type }}</p>
+<span class="badge {{ 'pass' if task.published else 'locked' }}">{{ 'Published' if task.published else 'Draft' }}</span>
+{% if not task.published %}<form class="inline" method="post" action="/staff/tasks/{{ task.id }}/publish"><button type="submit">Publish task</button></form>{% endif %}
+<div class="card">
+  <h2>Description</h2>
+  <div class="rich-content">{{ task.description|safe }}</div>
+</div>
+<div class="card">
+  <h2>Test cases ({{ task.test_cases|length }})</h2>
+  <p class="muted">Read-only test case review.</p>
+  {% for tc in task.test_cases %}<div class="test-result"><b>Test {{ tc.order }}</b> · {{ tc.input_json }} → {{ tc.expected_json }}</div>{% endfor %}
+</div>
+{% endblock %}

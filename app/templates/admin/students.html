@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Students{% endblock %}
+{% block header_right %}<a href="/admin" class="btn secondary">Courses</a>{% endblock %}
+{% block content %}
+<h1>Students</h1>
+{% if error %}<div class="result-box fail">{{ error }}</div>{% endif %}
+<div class="card">
+  <h3>Register a student</h3>
+  <p class="muted">Course is assigned separately below.</p>
+  <form method="post" action="/admin/students">
+    <label>Name</label><input type="text" name="name" required>
+    <label>Phone number</label><input type="tel" name="phone_number" required placeholder="e.g. 09012345678 or +2349012345678">
+    <p class="muted">Nigerian formats are normalized automatically, so 09157250018, 2349157250018, and +2349157250018 are treated as the same number.</p>
+    <button type="submit">Register student</button>
+  </form>
+</div>
+<div class="card">
+  <table>
+    <tr><th>Name</th><th>Phone</th><th>Enrolled courses</th><th></th></tr>
+    {% for s in students %}
+    <tr>
+      <td>{{ s.name }}</td>
+      <td>{{ s.phone_number }}</td>
+      <td>
+        <form method="post" action="/admin/students/{{ s.id }}/assign-course" class="enrollment-form">
+          <div class="course-checkboxes">
+            {% for c in courses %}
+              <label class="check"><input type="checkbox" name="course_ids" value="{{ c.id }}" {% if c.id in enrolled_course_ids[s.id] %}checked{% endif %}>{{ c.name }}</label>
+            {% else %}<span class="muted">No courses yet.</span>{% endfor %}
+          </div>
+          <button type="submit" class="secondary">Save enrolment</button>
+        </form>
+      </td>
+      <td><form method="post" action="/admin/students/{{ s.id }}/delete" onsubmit="return confirm('Remove this student?');">
+        <button type="submit" class="danger">Remove</button></form></td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

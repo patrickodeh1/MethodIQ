@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Admin{% endblock %}
+{% block header_right %}
+  <a href="/admin/students" class="btn secondary">Students</a>
+  <a href="/admin/staff" class="btn secondary">Staff</a>
+  <a href="/admin/audit" class="btn secondary">Audit log</a>
+  <a href="/admin/prompt-history" class="btn secondary">Prompt history</a>
+  <a href="/admin/logout" class="btn secondary">Log out</a>
+{% endblock %}
+{% block content %}
+<h1>Courses</h1>
+<div class="card ai-panel">
+  <h3>AI task generator</h3>
+  {% if ai_enabled %}
+    <p class="muted">Groq is connected. Open a course, add a topic goal, then use <b>Generate task with AI</b> to create a reviewable task and test cases.</p>
+  {% else %}
+    <p class="muted">Add <code>GROQ_API_KEY</code> to your <code>.env</code> file to enable AI-generated tasks.</p>
+  {% endif %}
+</div>
+<div class="card">
+  <h3>Add a course</h3>
+  <form method="post" action="/admin/courses">
+    <label>Name</label><input type="text" name="name" required placeholder="e.g. Python">
+    <label>Description</label>
+    <div class="rich-editor" data-target="course-description-new"></div>
+    <textarea id="course-description-new" name="description" hidden></textarea>
+    <button type="submit">Add course</button>
+  </form>
+</div>
+{% for course in courses %}
+<div class="card">
+  <h3><a href="/admin/courses/{{ course.id }}">{{ course.name }}</a></h3>
+  <span class="badge {{ 'pass' if course.published else 'locked' }}">{{ 'Published' if course.published else 'Draft' }}</span>
+  <div class="rich-content">{{ course.description|safe }}</div>
+  <p class="muted">{{ course.topics|length }} topic(s)</p>
+  <a href="/admin/courses/{{ course.id }}" class="btn">Open course &amp; generate AI tasks</a>
+  <form class="inline" method="post" action="/admin/courses/{{ course.id }}/publish">
+    <button type="submit" class="secondary">{{ 'Unpublish' if course.published else 'Publish course' }}</button>
+  </form>
+  <form class="inline" method="post" action="/admin/courses/{{ course.id }}/delete" onsubmit="return confirm('Delete this course and everything in it?');">
+    <button type="submit" class="danger">Delete course</button>
+  </form>
+</div>
+{% else %}<p class="muted">No courses yet.</p>{% endfor %}
+{% endblock %}

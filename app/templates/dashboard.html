@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block header_right %}<a href="/logout" class="btn secondary">Log out</a>{% endblock %}
+{% block content %}
+<h1>Hi, {{ student.name }}</h1>
+<div class="dashboard-hero">
+  <div><span class="muted">Your progress</span><strong>{{ score_pct }}%</strong><span class="muted">{{ passed_count }} of {{ total_count }} tasks complete</span></div>
+  {% if current_task %}<a class="btn" href="/task/{{ current_task.id }}">Continue learning</a>{% endif %}
+</div>
+<div class="card">
+  <h2>My courses</h2>
+  {% if enrolled_courses %}
+    <div class="course-grid">
+      {% for course in enrolled_courses %}
+        <article class="course-card">
+          <h3>{{ course.name }}</h3>
+          <div class="rich-content">{{ course.description|safe }}</div>
+          <p class="muted">{{ course.topics|length }} learning topic(s)</p>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">You are not enrolled in any published courses yet. Ask your administrator to enrol you.</p>
+  {% endif %}
+</div>
+<div class="card">
+  <h2>Next best step</h2>
+  {% if current_task %}
+    <p class="eyebrow">{{ current_task.topic.name }}</p>
+    <h3>{{ current_task.title }}</h3>
+    <p class="muted">{{ current_task.description|striptags|truncate(180) }}</p>
+    <a class="btn" href="/task/{{ current_task.id }}">View task details</a>
+  {% else %}
+    <p class="muted">No tasks assigned yet, or you've completed everything. Nice work!</p>
+  {% endif %}
+</div>
+<div class="card">
+  <h2>History</h2>
+  {% if all_tasks %}
+    <ul class="task-list">
+      {% for t in history_page_tasks %}
+        <li>
+          <span><b>{{ t.topic.name }}</b><br><a class="history-title" href="/task/{{ t.id }}">{{ t.title }}</a></span>
+          <span>
+            {% if t.id in passed_ids %}
+              <span class="badge pass">completed</span>
+            {% elif current_task and current_task.id == t.id %}
+              <span class="badge">current</span>
+            {% else %}
+              <span class="badge locked">locked</span>
+            {% endif %}
+          </span>
+        </li>
+      {% endfor %}
+    </ul>
+    {% if history_total_pages > 1 %}
+      <nav class="pagination" aria-label="History pages">
+        {% if history_page > 1 %}
+          <a class="btn secondary" href="/dashboard?page={{ history_page - 1 }}">Previous</a>
+        {% endif %}
+        <span class="muted">Page {{ history_page }} of {{ history_total_pages }}</span>
+        {% if history_page < history_total_pages %}
+          <a class="btn secondary" href="/dashboard?page={{ history_page + 1 }}">Next</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% else %}<p class="muted">No task history yet.</p>{% endif %}
+</div>
+{% endblock %}

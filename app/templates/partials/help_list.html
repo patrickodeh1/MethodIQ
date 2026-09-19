@@ -1,0 +1,53 @@
+<div class="card">
+  <h3>Ask for help</h3>
+  <p class="help-prompt">Try the task yourself first and make sure you understand what you have attempted. You can ask a fellow student for discussion or ask the AI for clues, examples, and explanations&mdash;never a ready-made answer.</p>
+  <div class="help-options">
+    <button type="button" class="secondary help-option" onclick="showHelpOption('fellow-help-{{ task.id }}', this)">1. Fellow student</button>
+    <button type="button" class="secondary help-option" onclick="showHelpOption('ai-help-{{ task.id }}', this)">2. AI</button>
+  </div>
+
+  <div id="fellow-help-{{ task.id }}" class="help-choice" hidden>
+    {% if helpers %}
+      <p class="muted">These students in your course have already passed "{{ task.title }}". Reach out politely and explain what you tried instead of asking for the answer.</p>
+      <ul class="task-list">
+        {% for h in helpers %}
+          <li><span>{{ h.name }}</span>
+          <a class="btn secondary" href="{{ h.wa_link }}" target="_blank" rel="noopener">Message on WhatsApp</a></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">No one in your course has passed this task yet. Try the AI clue option or re-read the task and test a small example.</p>
+    {% endif %}
+  </div>
+
+  <div id="ai-help-{{ task.id }}" class="help-choice" hidden>
+    <form id="ai-help-form-{{ task.id }}" hx-post="/task/{{ task.id }}/ai-help" hx-target="#ai-help-response-{{ task.id }}" hx-swap="innerHTML" style="margin-top:12px;">
+      <label>What did you try, and which part do you not understand?</label>
+      <textarea name="question" rows="3" required placeholder="Explain where you are stuck..."></textarea>
+      <input type="hidden" name="code" value="">
+      <button type="submit">Get a clue</button>
+    </form>
+    <div id="ai-help-response-{{ task.id }}"></div>
+  </div>
+</div>
+<script>
+function showHelpOption(id, button) {
+  document.querySelectorAll('#fellow-help-{{ task.id }}, #ai-help-{{ task.id }}').forEach(function (panel) {
+    panel.hidden = panel.id !== id;
+  });
+  document.querySelectorAll('.help-option').forEach(function (option) {
+    option.classList.remove('selected');
+  });
+  button.classList.add('selected');
+}
+</script>
+<script>
+document.body.addEventListener('htmx:afterRequest', function (event) {
+  if (event.detail.successful && event.target.id === 'ai-help-form-{{ task.id }}') {
+    event.target.reset();
+    const code = document.querySelector('textarea.code');
+    const hiddenCode = event.target.querySelector('input[name="code"]');
+    if (hiddenCode && code) hiddenCode.value = code.value;
+  }
+});
+</script>

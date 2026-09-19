@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ course.name }}{% endblock %}
+{% block header_right %}<a href="/staff" class="btn secondary">Staff dashboard</a>{% endblock %}
+{% block content %}
+<h1>{{ course.name }}</h1>
+<span class="badge {{ 'pass' if course.published else 'locked' }}">{{ 'Published' if course.published else 'Draft' }}</span>
+<div class="rich-content">{{ course.description|safe }}</div>
+{% for topic in course.topics %}
+  <div class="card">
+    <h2>{{ topic.name }}</h2>
+    <div class="rich-content">{{ topic.description|safe }}</div>
+    {% for task in topic.tasks %}
+      <div class="staff-course-row">
+        <a href="/staff/tasks/{{ task.id }}">{{ task.title }}</a>
+        <span>
+          <span class="badge {{ 'pass' if task.published else 'locked' }}">{{ 'Published' if task.published else 'Draft' }}</span>
+          {% if not task.published %}<form class="inline" method="post" action="/staff/tasks/{{ task.id }}/publish"><button type="submit">Publish task</button></form>{% endif %}
+        </span>
+      </div>
+    {% else %}<p class="muted">No tasks in this topic.</p>{% endfor %}
+  </div>
+{% endfor %}
+{% endblock %}

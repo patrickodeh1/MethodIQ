@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Audit log{% endblock %}
+{% block header_right %}<a href="/admin" class="btn secondary">Dashboard</a>{% endblock %}
+{% block content %}
+<h1>Audit log</h1>
+<p class="muted">Recent platform activity. Passwords, submitted code, and API keys are never stored here.</p>
+<div class="card audit-table-wrap">
+  <table>
+    <tr><th>Time</th><th>Actor</th><th>Action</th><th>Status</th></tr>
+    {% for log in logs %}
+    <tr>
+      <td>{{ log.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+      <td>
+        {% if log.actor_role == "student" %}Student: {{ students.get(log.actor_id, log.actor_id) }}
+        {% elif log.actor_role == "staff" %}Staff: {{ staff.get(log.actor_id, log.actor_id) }}
+        {% else %}{{ log.actor_role }}{% endif %}
+      </td>
+      <td><code>{{ log.action }}</code></td>
+      <td>{{ log.status_code or "—" }}</td>
+    </tr>
+    {% else %}<tr><td colspan="4" class="muted">No activity recorded yet.</td></tr>{% endfor %}
+  </table>
+</div>
+<nav class="pagination" aria-label="Audit log pages">
+  {% if page > 1 %}
+    <a class="btn secondary" href="/admin/audit?page={{ page - 1 }}">Previous</a>
+  {% endif %}
+  <span class="muted">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}
+    <a class="btn secondary" href="/admin/audit?page={{ page + 1 }}">Next</a>
+  {% endif %}
+</nav>
+{% endblock %}

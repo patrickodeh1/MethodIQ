@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Staff management{% endblock %}
+{% block header_right %}
+  <a href="/admin" class="btn secondary">Dashboard</a>
+  <a href="/admin/logout" class="btn secondary">Log out</a>
+{% endblock %}
+{% block content %}
+<h1>Staff management</h1>
+<p class="muted">Create and remove staff accounts. Staff access is fixed in code: staff can create students, view courses and tasks, and publish tasks. They cannot edit or delete curriculum.</p>
+
+{% if error %}<div class="result-box fail">{{ error }}</div>{% endif %}
+
+<div class="card">
+  <h2>Create staff account</h2>
+  <form method="post" action="/admin/staff">
+    <label>Username</label>
+    <input name="username" required autocomplete="username" placeholder="Staff username">
+    <label>Password</label>
+    <input name="password" type="password" required autocomplete="new-password" placeholder="Temporary password">
+    <button type="submit">Create staff account</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Staff accounts</h2>
+  {% for staff in staff_users %}
+    <div class="staff-row">
+      <span><b>{{ staff.username }}</b><br><span class="muted">Standard staff access · created {{ staff.created_at.strftime("%Y-%m-%d") }}</span></span>
+      <form method="post" action="/admin/staff/{{ staff.id }}/delete" onsubmit="return confirm('Remove this staff account?');">
+        <button class="danger" type="submit">Remove</button>
+      </form>
+    </div>
+  {% else %}
+    <p class="muted">No staff accounts have been created.</p>
+  {% endfor %}
+</div>
+{% endblock %}

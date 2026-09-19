@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Prompt history{% endblock %}
+{% block header_right %}<a href="/admin" class="btn secondary">Dashboard</a>{% endblock %}
+{% block content %}
+<h1>Prompt history</h1>
+<p class="muted">AI help conversations are shown per student for learning-support review.</p>
+<div class="card">
+  <form method="get" action="/admin/prompt-history">
+    <label>Choose a student</label>
+    <select name="student_id" required>
+      <option value="">Select student</option>
+      {% for student in students %}
+        <option value="{{ student.id }}" {% if selected_student and selected_student.id == student.id %}selected{% endif %}>{{ student.name }} — {{ student.phone_number }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">View prompts</button>
+  </form>
+</div>
+{% if selected_student %}
+  <h2>{{ selected_student.name }}</h2>
+  {% for prompt in prompts %}
+    <div class="card">
+      <p class="muted">{{ prompt.created_at.strftime("%Y-%m-%d %H:%M") }} · Task #{{ prompt.task_id }}</p>
+      <h3>Student prompt</h3>
+      <p style="white-space:pre-wrap;">{{ prompt.question }}</p>
+      <h3>AI response</h3>
+      <p style="white-space:pre-wrap;">{{ prompt.response }}</p>
+    </div>
+  {% else %}<p class="muted">This student has no AI prompts yet.</p>{% endfor %}
+{% endif %}
+{% endblock %}

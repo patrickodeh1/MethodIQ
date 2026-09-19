@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}{{ course.name }}{% endblock %}
+{% block header_right %}<a href="/admin" class="btn secondary">All courses</a>{% endblock %}
+{% block content %}
+<h1>{{ course.name }}</h1>
+<span class="badge {{ 'pass' if course.published else 'locked' }}">{{ 'Published to students' if course.published else 'Draft - hidden from students' }}</span>
+<form class="inline" method="post" action="/admin/courses/{{ course.id }}/publish">
+  <button type="submit" class="secondary">{{ 'Unpublish course' if course.published else 'Publish course' }}</button>
+</form>
+<div class="rich-content">{{ course.description|safe }}</div>
+<details class="card">
+  <summary>Edit course</summary>
+  <form method="post" action="/admin/courses/{{ course.id }}/edit">
+    <label>Name</label><input name="name" value="{{ course.name }}" required>
+    <label>Description</label>
+    <div class="rich-editor" data-target="course-description-edit"></div>
+    <textarea id="course-description-edit" name="description" hidden>{{ course.description }}</textarea>
+    <button type="submit">Save course</button>
+  </form>
+</details>
+
+{% if ai_error %}
+  <div class="result-box fail">AI generation failed: {{ ai_error }}</div>
+{% endif %}
+
+<div class="card ai-panel">
+  <h3>Build the roadmap with AI</h3>
+  <p class="muted">Set a goal for each topic, then generate a task manually. The draft includes the exercise and hidden test cases; nothing is published until you review and save it.</p>
+</div>
+
+<div class="card">
+  <h3>Add a topic</h3>
+  <form method="post" action="/admin/courses/{{ course.id }}/topics">
+    <label>Name</label><input type="text" name="name" required placeholder="e.g. Conditions">
+    <label>Description</label>
+    <div class="rich-editor" data-target="topic-description-new"></div>
+    <textarea id="topic-description-new" name="description" hidden></textarea>
+    <label>Goal (what should a student be able to do after this topic? used to guide AI task generation)</label>
+    <textarea name="goal" rows="2" placeholder="e.g. write functions with default args and use recursion"></textarea>
+    <label>Order</label><input type="number" name="order" value="0">
+    <button type="submit">Add topic</button>
+  </form>
+</div>
+
+{% for topic in course.topics %}
+<div class="card">
+  <h3>{{ topic.order }}. {{ topic.name }}</h3>
+  <div class="rich-content">{{ topic.description|safe }}</div>
+  {% if topic.goal %}<p class="muted"><b>Goal:</b> {{ topic.goal }}</p>{% endif %}
+
+  <table>
+    <tr><th>Order</th><th>Task</th><th>Mode</th><th>Test cases</th><th></th></tr>
+    {% for task in topic.tasks %}
+    <tr>
+      <td>{{ task.order }}</td>
+      <td><a href="/admin/tasks/{{ task.id }}">{{ task.title }}</a></td>
+      <td>{{ task.entry_type }}</td>
+      <td>{{ task.test_cases|length }}</td>
+      <td><span class="badge {{ 'pass' if task.published else 'locked' }}">{{ 'Published' if task.published else 'Draft' }}</span>
+      <form class="inline" method="post" action="/admin/tasks/{{ task.id }}/delete" onsubmit="return confirm('Delete this task?');">
+        <button type="submit" class="danger">Delete</button></form></td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <div style="margin-top:12px; display:flex; gap:8px;">
+    <form method="post" action="/admin/topics/{{ topic.id }}/ai-generate">
+      <button type="submit">Generate task with AI</button>
+    </form>
+  </div>
+
+  <details style="margin-top:12px;">
+    <summary class="muted">Add a task manually</summary>
+    <form method="post" action="/admin/topics/{{ topic.id }}/tasks" style="margin-top:10px;">
+      <label>Title</label><input type="text" name="title" required placeholder="e.g. FizzBuzz">
+      <label>Description (shown to student)</label>
+      <div class="rich-editor" data-target="task-description-new"></div>
+      <textarea id="task-description-new" name="description" hidden></textarea>
+      <label>Starter code (optional)</label>
+      <textarea name="starter_code" rows="4" placeholder="def solve():
+    pass"></textarea>
+      <label>Entry type</label>
+      <select name="entry_type">
+        <option value="stdin">stdin/stdout (reads input(), prints output)</option>
+        <option value="function">function (call it directly)</option>
+        <option value="class">class (instantiate, call a method)</option>
+      </select>
+      <label>Entry function/method name (required for function/class mode)</label>
+      <input type="text" name="entry_function" placeholder="e.g. is_even">
+      <label>Class name (only for class mode)</label>
+      <input type="text" name="class_name" placeholder="e.g. Solution">
+      <label>Order</label><input type="number" name="order" value="0">
+      <h4>Research resources (add 2-5)</h4>
+      {% for i in range(5) %}
+        <div class="resource-form">
+          <label>Resource {{ i + 1 }} title</label><input name="resource_title_{{ i }}" placeholder="e.g. Python list documentation">
+          <label>URL</label><input name="resource_url_{{ i }}" type="url" placeholder="https://...">
+          <label>What to research here</label><input name="resource_guide_{{ i }}" placeholder="Understand how indexing and slicing work">
+        </div>
+      {% endfor %}
+      <button type="submit">Add task</button>
+    </form>
+  </details>
+
+  <form class="inline" method="post" action="/admin/topics/{{ topic.id }}/delete" style="margin-top:10px;" onsubmit="return confirm('Delete this topic and its tasks?');">
+    <button type="submit" class="danger">Delete topic</button>
+  </form>
+</div>
+{% else %}<p class="muted">No topics yet.</p>{% endfor %}
+{% endblock %}

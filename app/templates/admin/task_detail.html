@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ task.title }}{% endblock %}
+{% block header_right %}<a href="/admin/courses/{{ task.topic.course_id }}" class="btn secondary">Back to course</a>{% endblock %}
+{% block content %}
+<h1>{{ task.title }}</h1>
+<p class="muted">{{ task.topic.name }} &middot; {{ task.topic.course.name }} &middot; mode: {{ task.entry_type }}</p>
+<span class="badge {{ 'pass' if task.published else 'locked' }}">{{ 'Published to students' if task.published else 'Draft - hidden from students' }}</span>
+<form class="inline" method="post" action="/admin/tasks/{{ task.id }}/publish">
+  <button type="submit" class="secondary">{{ 'Unpublish task' if task.published else 'Publish task' }}</button>
+</form>
+{% set resources = task.resources_json|default('[]', true)|loads %}
+<form class="card" method="post" action="/admin/tasks/{{ task.id }}/edit">
+  <h3>Edit task</h3>
+  <label>Title</label><input name="title" value="{{ task.title }}" required>
+  <label>Description</label>
+  <div class="rich-editor" data-target="task-description-edit"></div>
+  <textarea id="task-description-edit" name="description" hidden>{{ task.description }}</textarea>
+  <label>Starter code</label><textarea name="starter_code" rows="5">{{ task.starter_code }}</textarea>
+  <label>Entry type</label><select name="entry_type">
+    <option value="stdin" {% if task.entry_type == "stdin" %}selected{% endif %}>stdin/stdout</option>
+    <option value="function" {% if task.entry_type == "function" %}selected{% endif %}>function</option>
+    <option value="class" {% if task.entry_type == "class" %}selected{% endif %}>class</option>
+  </select>
+  <label>Entry function/method</label><input name="entry_function" value="{{ task.entry_function }}">
+  <label>Class name</label><input name="class_name" value="{{ task.class_name }}">
+  <label>Order</label><input name="order" type="number" value="{{ task.order }}">
+  <h4>Research resources (2-5)</h4>
+  {% for i in range(5) %}
+    {% set resource = resources[i] if i < resources|length else {} %}
+    <div class="resource-form">
+      <label>Resource {{ i + 1 }} title</label><input name="resource_title_{{ i }}" value="{{ resource.title|default('') }}">
+      <label>URL</label><input name="resource_url_{{ i }}" type="url" value="{{ resource.url|default('') }}">
+      <label>What to research here</label><input name="resource_guide_{{ i }}" value="{{ resource.guide|default('') }}">
+    </div>
+  {% endfor %}
+  <button type="submit">Save task</button>
+</form>
+<div class="card">
+  <h3>Description</h3>
+  <div class="rich-content">{{ task.description|safe }}</div>
+</div>
+<div class="card">
+  <h3>Test cases ({{ task.test_cases|length }})</h3>
+  <p class="muted">Hidden from students (except ones marked sample).</p>
+  <table>
+    <tr><th>Order</th><th>Input</th><th>Expected</th><th>Sample?</th><th>Actions</th></tr>
+    {% for tc in task.test_cases %}
+    <tr>
+      <td colspan="5">
+        <form method="post" action="/admin/testcases/{{ tc.id }}/edit" class="testcase-edit">
+          <input name="order" type="number" value="{{ tc.order }}">
+          <textarea name="input_json" rows="2">{{ tc.input_json }}</textarea>
+          <textarea name="expected_json" rows="2" required>{{ tc.expected_json }}</textarea>
+          <label><input name="is_sample" type="checkbox" value="true" {% if tc.is_sample %}checked{% endif %}> sample</label>
+          <button type="submit" class="secondary">Save test case</button>
+        </form>
+        <form method="post" action="/admin/testcases/{{ tc.id }}/delete" onsubmit="return confirm('Delete this test case?');">
+          <button type="submit" class="danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <details style="margin-top:12px;">
+    <summary class="muted">Add a test case manually</summary>
+    <form method="post" action="/admin/tasks/{{ task.id }}/testcases" style="margin-top:10px;">
+      <label>Input &mdash; for stdin mode: raw stdin text. For function/class mode: JSON array of args, e.g. [2] or [2, 3] or [[1,2,3]]</label>
+      <textarea name="input_json" rows="2"></textarea>
+      <label>Expected &mdash; for stdin mode: raw stdout text. For function/class mode: JSON value, e.g. true or 5 or [1,2,3]</label>
+      <textarea name="expected_json" rows="2" required></textarea>
+      <label><input type="checkbox" name="is_sample" value="true" style="width:auto;display:inline-block;"> Show as sample to students</label>
+      <label>Order</label><input type="number" name="order" value="0">
+      <button type="submit">Add test case</button>
+    </form>
+  </details>
+</div>
+{% endblock %}

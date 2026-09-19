@@ -1,0 +1,6 @@
+venv/
+lenv/
+__pycache__/
+*.pyc
+.env
+*.db

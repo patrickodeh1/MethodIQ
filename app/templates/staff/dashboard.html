@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Staff dashboard{% endblock %}
+{% block header_right %}
+  <a href="/staff/students" class="btn secondary">Add students</a>
+  <a href="/admin/logout" class="btn secondary">Log out</a>
+{% endblock %}
+{% block content %}
+<h1>Staff dashboard</h1>
+<p class="muted">Read-only curriculum workspace with fixed staff access. You can create students and publish tasks, but only an administrator can edit or delete content.</p>
+<div class="card">
+  <h2>Courses</h2>
+  {% for course in courses %}
+    <div class="staff-course-row">
+      <span><a href="/staff/courses/{{ course.id }}">{{ course.name }}</a>
+        <span class="badge {{ 'pass' if course.published else 'locked' }}">{{ 'Published' if course.published else 'Draft' }}</span>
+      </span>
+      <span class="muted">{{ course.topics|length }} topic(s)</span>
+    </div>
+  {% else %}<p class="muted">No courses available.</p>{% endfor %}
+</div>
+{% endblock %}

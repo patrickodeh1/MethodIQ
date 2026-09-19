@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}{{ task.title }}{% endblock %}
+{% block header_right %}<a href="/dashboard" class="btn secondary">Dashboard</a>{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+{% endblock %}
+{% block content %}
+{% if is_locked %}
+  <div class="card"><p>This task is locked. Complete earlier tasks first.</p>
+  <a class="btn" href="/dashboard">Back to dashboard</a></div>
+{% else %}
+<h1>{{ task.title }} {% if already_passed %}<span class="badge pass">passed</span>{% endif %}</h1>
+<p class="muted">{{ task.topic.name }}</p>
+<div class="card">
+  <h3>Description</h3>
+  <div class="rich-content">{{ task.description|safe }}</div>
+  {% if resources %}
+    <h3>Research guides</h3>
+    <p class="muted">Use at least two of these resources. Each one explains what to look for, not just where to click.</p>
+    <div class="resource-grid">
+      {% for resource in resources %}
+        <a class="resource-card" href="{{ resource.url }}" target="_blank" rel="noopener">
+          <b>{{ resource.title }}</b>
+          <span>{{ resource.guide }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+  {% if sample_tests %}
+    <h3>Sample</h3>
+    {% for s in sample_tests %}
+      <p class="muted">Input:</p><div class="error-output">{{ s.input_json }}</div>
+      <p class="muted">Expected output:</p><div class="error-output">{{ s.expected_json }}</div>
+    {% endfor %}
+  {% else %}
+    <p class="muted">No public example for this task &mdash; read the description carefully and test your logic before submitting.</p>
+  {% endif %}
+</div>
+<div class="card">
+  <h3>Your code</h3>
+  <form id="submit-form" hx-post="/task/{{ task.id }}/submit" hx-target="#result" hx-swap="innerHTML">
+    <textarea id="code-editor" class="code" name="code" spellcheck="false">{{ last_submission.code if last_submission else task.starter_code }}</textarea>
+    <br><br>
+    <button type="submit">Run &amp; submit</button>
+    <button type="button" class="secondary" hx-get="/task/{{ task.id }}/help" hx-target="#help-panel" hx-swap="innerHTML">Ask for Help</button>
+  </form>
+  <div id="result">
+    {% if last_submission %}{% include "partials/submission_result.html" with context %}{% endif %}
+  </div>
+  <div id="help-panel"></div>
+</div>
+{% endif %}
+
+<script>
+(function () {
+  const ta = document.querySelector('textarea.code');
+  if (!ta) return;
+  const draftKey = 'code_draft_task_{{ task.id }}';
+  const saved = localStorage.getItem(draftKey);
+  if (saved !== null) { ta.value = saved; }
+  let saveTimer;
+  ta.addEventListener('input', function () {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      try { localStorage.setItem(draftKey, ta.value); } catch (e) {}
+    }, 300);
+  });
+  ta.addEventListener('keydown', function (e) {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = ta.selectionStart, end = ta.selectionEnd;
+      ta.value = ta.value.substring(0, start) + '\t' + ta.value.substring(end);
+      ta.selectionStart = ta.selectionEnd = start + 1;
+    } else if (e.key === 'Enter' && ta.selectionStart === ta.selectionEnd) {
+      const lineStart = ta.value.lastIndexOf('\n', ta.selectionStart - 1) + 1;
+      const currentLine = ta.value.slice(lineStart, ta.selectionStart);
+      const indentation = (currentLine.match(/^[ \t]*/) || [''])[0];
+      const extraIndent = /:\s*(#.*)?$/.test(currentLine) ? '    ' : '';
+      const inserted = '\n' + indentation + extraIndent;
+      e.preventDefault();
+      ta.setRangeText(inserted, ta.selectionStart, ta.selectionEnd, 'end');
+    }
+  });
+  document.body.addEventListener('htmx:afterSwap', function (event) {
+    if (event.target.id !== 'help-panel') return;
+    const hiddenCode = document.querySelector('#ai-help-form input[name="code"]');
+    if (hiddenCode) hiddenCode.value = ta.value;
+  });
+})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script>
+(function () {
+  const textarea = document.getElementById('code-editor');
+  const form = document.getElementById('submit-form');
+  if (!textarea || !form || typeof CodeMirror === 'undefined') return;
+  const editor = CodeMirror.fromTextArea(textarea, {
+    mode: 'python',
+    theme: 'dracula',
+    lineNumbers: true,
+    indentUnit: 4,
+    tabSize: 4,
+    indentWithTabs: false,
+    smartIndent: true,
+    autofocus: true,
+    viewportMargin: Infinity
+  });
+  form.addEventListener('submit', function () {
+    editor.save();
+  });
+})();
+</script>
+{% endblock %}

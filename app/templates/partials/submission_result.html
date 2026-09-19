@@ -1,0 +1,43 @@
+{% if result is defined %}
+  <div class="test-results">
+    <h3>Test outputs</h3>
+    {% for test in result.test_results %}
+      <div class="test-result {{ 'test-pass' if test.passed else 'test-fail' }}">
+        <div class="test-result-heading">
+          <b>Test {{ test.number }}</b>
+          <span>{{ 'Passed' if test.passed else 'Needs work' }}</span>
+        </div>
+        {% if test.input %}
+          <div class="muted">Input</div>
+          <pre class="output-value">{{ test.input }}</pre>
+        {% else %}
+          <div class="muted">Hidden test input</div>
+        {% endif %}
+        <div class="muted">Your output</div>
+        <pre class="output-value">{{ test.actual if test.actual else '(no output)' }}</pre>
+        {% if test.error %}
+          <div class="muted">Runtime output</div>
+          <pre class="output-value">{{ test.error }}</pre>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  {% if result.passed %}
+    <div class="result-box pass"><b>Accepted</b> &mdash; all {{ result.tests_total }} tests passed.</div>
+  {% else %}
+    <div class="result-box fail">
+      <b>Not accepted</b> &mdash; {{ result.tests_passed }}/{{ result.tests_total }} tests passed.
+      {% if result.error_output %}
+        <p class="muted">Output from your program (last failing run):</p>
+        <div class="error-output">{{ result.error_output }}</div>
+      {% else %}
+        <p class="muted">Your code ran without errors but didn't match the expected output for at least one hidden case. Review the description and edge cases, then try again.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+{% elif last_submission %}
+  <div class="result-box {{ 'pass' if last_submission.passed else 'fail' }}">
+    Last attempt: {{ 'Accepted' if last_submission.passed else 'Not accepted' }}
+    ({{ last_submission.tests_passed }}/{{ last_submission.tests_total }} tests)
+  </div>
+{% endif %}
