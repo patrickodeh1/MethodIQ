@@ -20,7 +20,7 @@ def ensure_schema():
         for table, column, definition in (
             ("courses", "description_format", "VARCHAR(20) DEFAULT 'html'"),
             ("tasks", "description_format", "VARCHAR(20) DEFAULT 'html'"),
-            ("tasks", "resources_json", "TEXT DEFAULT '[]'"),
+            ("topics", "concepts_taught", "TEXT DEFAULT ''"),
             ("courses", "published", "BOOLEAN DEFAULT 0"),
             ("tasks", "published", "BOOLEAN DEFAULT 0"),
         ):
@@ -29,7 +29,6 @@ def ensure_schema():
                 connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {definition}"))
                 if column == "published":
                     connection.execute(text(f"UPDATE {table} SET published = 1"))
-
 
 def get_db():
     db = SessionLocal()

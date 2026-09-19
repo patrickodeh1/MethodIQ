@@ -26,6 +26,7 @@ class Topic(Base):
     description = Column(Text, default="")
     order = Column(Integer, default=0)
     goal = Column(Text, default="")  # what a student should be able to do after this topic/stage - used as AI context
+    concepts_taught = Column(Text, default="")  # comma-separated whitelist of concepts allowed in AI-generated tasks; enforced as a hard boundary rather than inferred
 
     course = relationship("Course", back_populates="topics")
     tasks = relationship("Task", back_populates="topic", order_by="Task.order", cascade="all, delete-orphan")
@@ -38,18 +39,22 @@ class Task(Base):
     title = Column(String(200), nullable=False)
     description = Column(Text, default="")
     description_format = Column(String(20), default="html")
-    resources_json = Column(Text, default="[]")
     published = Column(Boolean, default=False, nullable=False)
     starter_code = Column(Text, default="")
     order = Column(Integer, default=0)
 
-    entry_type = Column(String(20), default="stdin")
-    entry_function = Column(String(100), default="")
-    class_name = Column(String(100), default="")
-
     topic = relationship("Topic", back_populates="tasks")
     test_cases = relationship("TestCase", back_populates="task", order_by="TestCase.order", cascade="all, delete-orphan")
     submissions = relationship("Submission", back_populates="task", cascade="all, delete-orphan")
+
+
+class AITaskGenerationHistory(Base):
+    __tablename__ = "ai_task_generation_history"
+    id = Column(Integer, primary_key=True)
+    topic_id = Column(Integer, ForeignKey("topics.id"), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class TestCase(Base):

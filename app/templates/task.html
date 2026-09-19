@@ -15,23 +15,10 @@
 <div class="card">
   <h3>Description</h3>
   <div class="rich-content">{{ task.description|safe }}</div>
-  {% if resources %}
-    <h3>Research guides</h3>
-    <p class="muted">Use at least two of these resources. Each one explains what to look for, not just where to click.</p>
-    <div class="resource-grid">
-      {% for resource in resources %}
-        <a class="resource-card" href="{{ resource.url }}" target="_blank" rel="noopener">
-          <b>{{ resource.title }}</b>
-          <span>{{ resource.guide }}</span>
-        </a>
-      {% endfor %}
-    </div>
-  {% endif %}
   {% if sample_tests %}
-    <h3>Sample</h3>
+    <h3>Example input</h3>
     {% for s in sample_tests %}
-      <p class="muted">Input:</p><div class="error-output">{{ s.input_json }}</div>
-      <p class="muted">Expected output:</p><div class="error-output">{{ s.expected_json }}</div>
+      <div class="error-output">{{ s.input_json if s.input_json else '(no input required)' }}</div>
     {% endfor %}
   {% else %}
     <p class="muted">No public example for this task &mdash; read the description carefully and test your logic before submitting.</p>
@@ -42,9 +29,11 @@
   <form id="submit-form" hx-post="/task/{{ task.id }}/submit" hx-target="#result" hx-swap="innerHTML">
     <textarea id="code-editor" class="code" name="code" spellcheck="false">{{ last_submission.code if last_submission else task.starter_code }}</textarea>
     <br><br>
-    <button type="submit">Run &amp; submit</button>
+    <button type="button" id="run-code-button" hx-post="/task/{{ task.id }}/run" hx-include="#code-editor" hx-target="#run-result" hx-swap="innerHTML">Run code</button>
+    <button type="submit">Verify &amp; submit</button>
     <button type="button" class="secondary" hx-get="/task/{{ task.id }}/help" hx-target="#help-panel" hx-swap="innerHTML">Ask for Help</button>
   </form>
+  <div id="run-result"></div>
   <div id="result">
     {% if last_submission %}{% include "partials/submission_result.html" with context %}{% endif %}
   </div>
@@ -95,6 +84,7 @@
 (function () {
   const textarea = document.getElementById('code-editor');
   const form = document.getElementById('submit-form');
+  const runButton = document.getElementById('run-code-button');
   if (!textarea || !form || typeof CodeMirror === 'undefined') return;
   const editor = CodeMirror.fromTextArea(textarea, {
     mode: 'python',
@@ -110,6 +100,11 @@
   form.addEventListener('submit', function () {
     editor.save();
   });
+  if (runButton) {
+    runButton.addEventListener('click', function () {
+      editor.save();
+    });
+  }
 })();
 </script>
 {% endblock %}

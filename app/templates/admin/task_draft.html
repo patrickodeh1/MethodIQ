@@ -15,36 +15,17 @@
     <label>Description</label>
     <div class="rich-editor" data-target="draft-description"></div>
     <textarea id="draft-description" name="description" hidden>{{ draft.description }}</textarea>
-    <label>Starter code</label>
+    <label>Starter code <span class="muted">(neutral scaffold; add code only if you intentionally want to provide a hint)</span></label>
     <textarea name="starter_code" rows="4">{{ draft.starter_code }}</textarea>
-    <label>Entry type</label>
-    <select name="entry_type">
-      <option value="function" {% if draft.entry_type == "function" %}selected{% endif %}>function</option>
-      <option value="class" {% if draft.entry_type == "class" %}selected{% endif %}>class</option>
-      <option value="stdin" {% if draft.entry_type == "stdin" %}selected{% endif %}>stdin/stdout</option>
-    </select>
-    <label>Entry function/method name</label>
-    <input type="text" name="entry_function" value="{{ draft.entry_function }}">
-    <label>Class name (only if class mode)</label>
-    <input type="text" name="class_name" value="{{ draft.class_name }}">
-    <h3>Research resources (add 2-5)</h3>
-    <p class="muted">Each resource needs a link and a short guide explaining what the student should research.</p>
-    {% for i in range(5) %}
-      <div class="resource-form">
-        <label>Resource {{ i + 1 }} title</label><input name="resource_title_{{ i }}">
-        <label>URL</label><input name="resource_url_{{ i }}" type="url">
-        <label>What to research here</label><input name="resource_guide_{{ i }}">
-      </div>
-    {% endfor %}
   </div>
 
   <div class="card">
     <h3>Test cases &mdash; check these carefully, these decide pass/fail for every student</h3>
     {% for tc in draft.test_cases %}
       <div style="border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:10px;">
-        <label>Input (JSON args)</label>
+        <label>Input (stdin text)</label>
         <input type="text" name="tc_input_{{ loop.index0 }}" value='{{ tc.input_json }}'>
-        <label>Expected (JSON return value)</label>
+        <label>Expected output (exact stdout text)</label>
         <input type="text" name="tc_expected_{{ loop.index0 }}" value='{{ tc.expected_json }}'>
         <label>
           <input type="checkbox" name="tc_is_sample_{{ loop.index0 }}" value="true" {% if tc.is_sample %}checked{% endif %} style="width:auto; display:inline-block;">

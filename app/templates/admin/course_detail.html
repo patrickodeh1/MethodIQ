@@ -37,6 +37,8 @@
     <textarea id="topic-description-new" name="description" hidden></textarea>
     <label>Goal (what should a student be able to do after this topic? used to guide AI task generation)</label>
     <textarea name="goal" rows="2" placeholder="e.g. write functions with default args and use recursion"></textarea>
+    <label>Concepts taught (comma-separated whitelist enforced as a hard boundary for AI task generation)</label>
+    <textarea name="concepts_taught" rows="2" placeholder="variables, int, float, str, bool, type(), input(), print()"></textarea>
     <label>Order</label><input type="number" name="order" value="0">
     <button type="submit">Add topic</button>
   </form>
@@ -47,6 +49,7 @@
   <h3>{{ topic.order }}. {{ topic.name }}</h3>
   <div class="rich-content">{{ topic.description|safe }}</div>
   {% if topic.goal %}<p class="muted"><b>Goal:</b> {{ topic.goal }}</p>{% endif %}
+  {% if topic.concepts_taught %}<p class="muted"><b>Concepts taught:</b> {{ topic.concepts_taught }}</p>{% endif %}
 
   <table>
     <tr><th>Order</th><th>Task</th><th>Mode</th><th>Test cases</th><th></th></tr>
@@ -54,7 +57,7 @@
     <tr>
       <td>{{ task.order }}</td>
       <td><a href="/admin/tasks/{{ task.id }}">{{ task.title }}</a></td>
-      <td>{{ task.entry_type }}</td>
+      <td>Python program</td>
       <td>{{ task.test_cases|length }}</td>
       <td><span class="badge {{ 'pass' if task.published else 'locked' }}">{{ 'Published' if task.published else 'Draft' }}</span>
       <form class="inline" method="post" action="/admin/tasks/{{ task.id }}/delete" onsubmit="return confirm('Delete this task?');">
@@ -79,25 +82,7 @@
       <label>Starter code (optional)</label>
       <textarea name="starter_code" rows="4" placeholder="def solve():
     pass"></textarea>
-      <label>Entry type</label>
-      <select name="entry_type">
-        <option value="stdin">stdin/stdout (reads input(), prints output)</option>
-        <option value="function">function (call it directly)</option>
-        <option value="class">class (instantiate, call a method)</option>
-      </select>
-      <label>Entry function/method name (required for function/class mode)</label>
-      <input type="text" name="entry_function" placeholder="e.g. is_even">
-      <label>Class name (only for class mode)</label>
-      <input type="text" name="class_name" placeholder="e.g. Solution">
       <label>Order</label><input type="number" name="order" value="0">
-      <h4>Research resources (add 2-5)</h4>
-      {% for i in range(5) %}
-        <div class="resource-form">
-          <label>Resource {{ i + 1 }} title</label><input name="resource_title_{{ i }}" placeholder="e.g. Python list documentation">
-          <label>URL</label><input name="resource_url_{{ i }}" type="url" placeholder="https://...">
-          <label>What to research here</label><input name="resource_guide_{{ i }}" placeholder="Understand how indexing and slicing work">
-        </div>
-      {% endfor %}
       <button type="submit">Add task</button>
     </form>
   </details>

@@ -1,0 +1,15 @@
+{% if result.error %}
+  <div class="result-box fail">
+    <b>Execution error</b>
+    <pre class="error-output">{{ result.error }}</pre>
+  </div>
+{% else %}
+  <div class="result-box {% if result.stderr %}fail{% else %}pass{% endif %}">
+    <b>Output</b>
+    <pre class="output-value">{{ result.stdout if result.stdout else '(no output)' }}</pre>
+    {% if result.stderr %}
+      <b>Errors / warnings</b>
+      <pre class="error-output">{{ result.stderr }}</pre>
+    {% endif %}
+  </div>
+{% endif %}

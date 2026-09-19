@@ -1,5 +1,4 @@
 import os
-import json
 import resource
 import subprocess
 import tempfile
@@ -50,34 +49,7 @@ def run_code(code: str, stdin: str) -> dict:
             return {"stdout": "", "stderr": "", "error": f"Execution error: {exc}"}
 
 
-def _build_call_harness(student_code: str, entry_type: str, entry_function: str,
-                         class_name: str, args_json: str) -> str:
-    """
-    LeetCode-style harness: embeds the raw JSON args text safely (via repr,
-    so we never worry about quote-escaping), parses it with json.loads
-    inside the sandboxed process, calls the student's function/method, and
-    prints the JSON-serialized return value for comparison.
-    """
-    args_literal = repr(args_json)
-    if entry_type == "class":
-        call = (
-            f"__obj = {class_name}()\n"
-            f"__result = __obj.{entry_function}(*__args)\n"
-        )
-    else:
-        call = f"__result = {entry_function}(*__args)\n"
-
-    return (
-        f"{student_code}\n\n"
-        f"import json\n"
-        f"__args = json.loads({args_literal})\n"
-        f"{call}"
-        f"print(json.dumps(__result))\n"
-    )
-
-
-def judge_submission(code: str, test_cases: list, entry_type: str = "stdin",
-                      entry_function: str = "", class_name: str = "") -> dict:
+def judge_submission(code: str, test_cases: list) -> dict:
     """
     Runs code against every test case. Never leaks which specific case
     failed or what its hidden input/expected value was - only a pass count
@@ -89,12 +61,7 @@ def judge_submission(code: str, test_cases: list, entry_type: str = "stdin",
     test_results = []
 
     for index, tc in enumerate(test_cases, start=1):
-        if entry_type in ("function", "class"):
-            harness = _build_call_harness(code, entry_type, entry_function, class_name, tc.input_json)
-            result = run_code(harness, "")
-        else:
-            harness = code
-            result = run_code(harness, tc.input_json)
+        result = run_code(code, tc.input_json)
 
         if result["error"]:
             test_results.append({
@@ -111,15 +78,7 @@ def judge_submission(code: str, test_cases: list, entry_type: str = "stdin",
             }
 
         actual_output = (result["stdout"] or "").strip()
-        if entry_type in ("function", "class"):
-            try:
-                actual_value = json.loads(actual_output) if actual_output else None
-                expected_value = json.loads(tc.expected_json.strip()) if tc.expected_json.strip() else None
-                is_match = actual_value == expected_value
-            except (json.JSONDecodeError, ValueError):
-                is_match = False
-        else:
-            is_match = actual_output == (tc.expected_json or "").strip()
+        is_match = actual_output == (tc.expected_json or "").strip()
 
         test_results.append({
             "number": index,

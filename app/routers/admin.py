@@ -6,7 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 import json
-from app.models import Course, Topic, Task, TestCase, Student, StudentEnrollment, StaffUser, AuditLog, AIHelpRequest
+from app.models import (
+    Course, Topic, Task, TestCase, Student, StudentEnrollment, StaffUser,
+    AuditLog, AIHelpRequest, AITaskGenerationHistory,
+)
 from app.config import ADMIN_USERNAME, ADMIN_PASSWORD, GROQ_API_KEY
 from app.auth import make_token, is_admin, is_staff, get_admin_session, ADMIN_COOKIE, SESSION_MAX_AGE, password_hash
 from app.templates_env import templates
@@ -27,18 +30,6 @@ def _staff_guard(request: Request):
     if not is_staff(request):
         return RedirectResponse(url="/admin/login", status_code=303)
     return None
-
-
-def _resources(form, prefix="resource"):
-    result = []
-    for index in range(5):
-        title = (form.get(f"{prefix}_title_{index}") or "").strip()
-        url = (form.get(f"{prefix}_url_{index}") or "").strip()
-        guide = (form.get(f"{prefix}_guide_{index}") or "").strip()
-        if title or url or guide:
-            if title and url and guide:
-                result.append({"title": title, "url": url, "guide": guide})
-    return result[:5]
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -329,13 +320,21 @@ def publish_course(course_id: int, request: Request, db: Session = Depends(get_d
 # ---- Topics ----
 
 @router.post("/courses/{course_id}/topics")
-def create_topic(course_id: int, request: Request, name: str = Form(...), description: str = Form(""), goal: str = Form(""), order: int = Form(0), db: Session = Depends(get_db)):
+def create_topic(
+    course_id: int, request: Request, name: str = Form(...),
+    description: str = Form(""), goal: str = Form(""),
+    concepts_taught: str = Form(""), order: int = Form(0),
+    db: Session = Depends(get_db),
+):
     guard = _guard(request, "courses")
     if guard:
         return guard
     if not db.query(Course).get(course_id):
         return RedirectResponse(url="/admin", status_code=303)
-    db.add(Topic(course_id=course_id, name=name.strip(), description=description, goal=goal, order=order))
+    db.add(Topic(
+        course_id=course_id, name=name.strip(), description=description,
+        goal=goal, concepts_taught=concepts_taught.strip(), order=order,
+    ))
     db.commit()
     return RedirectResponse(url=f"/admin/courses/{course_id}", status_code=303)
 
@@ -371,13 +370,6 @@ def create_task(
     topic_id: int, request: Request,
     title: str = Form(...), description: str = Form(""),
     starter_code: str = Form(""), order: int = Form(0),
-    entry_type: str = Form("stdin"), entry_function: str = Form(""),
-    class_name: str = Form(""),
-    resource_title_0: str = Form(""), resource_url_0: str = Form(""), resource_guide_0: str = Form(""),
-    resource_title_1: str = Form(""), resource_url_1: str = Form(""), resource_guide_1: str = Form(""),
-    resource_title_2: str = Form(""), resource_url_2: str = Form(""), resource_guide_2: str = Form(""),
-    resource_title_3: str = Form(""), resource_url_3: str = Form(""), resource_guide_3: str = Form(""),
-    resource_title_4: str = Form(""), resource_url_4: str = Form(""), resource_guide_4: str = Form(""),
     db: Session = Depends(get_db),
 ):
     guard = _guard(request, "tasks")
@@ -386,25 +378,9 @@ def create_task(
     topic = db.query(Topic).get(topic_id)
     if not topic:
         return RedirectResponse(url="/admin", status_code=303)
-    if entry_type not in ("stdin", "function", "class"):
-        entry_type = "stdin"
-    resource_values = []
-    for i in range(5):
-        resource_title = locals()[f"resource_title_{i}"].strip()
-        url = locals()[f"resource_url_{i}"].strip()
-        guide = locals()[f"resource_guide_{i}"].strip()
-        if resource_title or url or guide:
-            if not (resource_title and url and guide):
-                return RedirectResponse(url=f"/admin/courses/{topic.course_id}?ai_error=Complete+all+resource+fields.", status_code=303)
-            resource_values.append({"title": resource_title, "url": url, "guide": guide})
-    if len(resource_values) < 2:
-        return RedirectResponse(url=f"/admin/courses/{topic.course_id}?ai_error=Add+at+least+2+research+resources.", status_code=303)
     task = Task(
         topic_id=topic_id, title=title.strip(), description=description,
         starter_code=starter_code, order=order,
-        entry_type=entry_type, entry_function=entry_function.strip(),
-        class_name=class_name.strip(),
-        resources_json=json.dumps(resource_values),
     )
     db.add(task)
     db.commit()
@@ -423,15 +399,7 @@ async def edit_task(task_id: int, request: Request, db: Session = Depends(get_db
     task.title = (form.get("title") or task.title).strip()
     task.description = form.get("description") or ""
     task.starter_code = form.get("starter_code") or ""
-    task.entry_type = form.get("entry_type") or "stdin"
-    task.entry_function = (form.get("entry_function") or "").strip()
-    task.class_name = (form.get("class_name") or "").strip()
     task.order = int(form.get("order") or 0)
-    resources = _resources(form)
-    if len(resources) not in (0, 2, 3, 4, 5):
-        return RedirectResponse(url=f"/admin/tasks/{task_id}?error=Add+between+2+and+5+complete+resources.", status_code=303)
-    if resources:
-        task.resources_json = json.dumps(resources)
     db.commit()
     return RedirectResponse(url=f"/admin/tasks/{task_id}", status_code=303)
 
@@ -474,8 +442,18 @@ def ai_generate_task(topic_id: int, request: Request, db: Session = Depends(get_
         return RedirectResponse(url="/admin", status_code=303)
 
     existing_titles = [t.title for t in topic.tasks]
+    generated_history = (
+        db.query(AITaskGenerationHistory)
+        .filter(AITaskGenerationHistory.topic_id == topic.id)
+        .order_by(AITaskGenerationHistory.created_at.asc(), AITaskGenerationHistory.id.asc())
+        .all()
+    )
+    generated_task_history = [
+        {"title": item.title, "description": item.description}
+        for item in generated_history
+    ]
     prior_topics = [
-        {"name": t.name, "goal": t.goal}
+        {"name": t.name, "goal": t.goal, "concepts_taught": t.concepts_taught}
         for t in topic.course.topics
         if t.order < topic.order
     ]
@@ -486,13 +464,22 @@ def ai_generate_task(topic_id: int, request: Request, db: Session = Depends(get_
             topic.name,
             topic.description,
             topic.goal,
+            topic.concepts_taught,
             prior_topics,
             existing_titles,
+            generated_task_history,
         )
     except RuntimeError as exc:
         return RedirectResponse(
             url=f"/admin/courses/{topic.course_id}?ai_error={quote(str(exc))}", status_code=303
         )
+
+    db.add(AITaskGenerationHistory(
+        topic_id=topic.id,
+        title=(draft.get("title") or "Untitled generated task").strip(),
+        description=draft.get("description") or "",
+    ))
+    db.commit()
 
     return templates.TemplateResponse(
         "admin/task_draft.html",
@@ -513,28 +500,16 @@ async def create_task_from_draft(topic_id: int, request: Request, db: Session = 
     title = (form.get("title") or "").strip()
     description = form.get("description") or ""
     starter_code = form.get("starter_code") or ""
-    entry_type = form.get("entry_type") or "function"
-    if entry_type not in ("stdin", "function", "class"):
-        entry_type = "function"
-    entry_function = (form.get("entry_function") or "").strip()
-    class_name = (form.get("class_name") or "").strip()
     order = int(form.get("order") or 0)
-    resource_values = _resources(form)
 
     if not title:
         return RedirectResponse(
             url=f"/admin/courses/{topic.course_id}?ai_error=Task+title+was+empty+-+not+saved.", status_code=303
         )
-    if len(resource_values) < 2:
-        return RedirectResponse(
-            url=f"/admin/courses/{topic.course_id}?ai_error=Add+at+least+2+research+resources+before+saving.",
-            status_code=303,
-        )
 
     task = Task(
         topic_id=topic_id, title=title, description=description, starter_code=starter_code,
-        order=order, entry_type=entry_type, entry_function=entry_function, class_name=class_name,
-        resources_json=json.dumps(resource_values),
+        order=order,
     )
     db.add(task)
     db.flush()  # get task.id before commit so we can attach test cases

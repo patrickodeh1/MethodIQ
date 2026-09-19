@@ -69,9 +69,6 @@ form.inline { display: inline; }
 .ql-snow .ql-picker-options .ql-picker-item { color: var(--text); }
 .rich-content { line-height: 1.65; }
 .rich-content a { color: var(--accent); }
-.resource-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-.resource-card { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; background: rgba(91,141,239,0.06); }
-.resource-card span { color: var(--muted); font-size: 13px; line-height: 1.4; }
 .course-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .course-card { padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: rgba(91,141,239,0.05); }
 .course-card h3 { margin-top: 0; }
@@ -102,7 +99,6 @@ label.check { display: flex; align-items: center; gap: 6px; width: fit-content; 
   .task-list li > span:last-child { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
   table { display: block; overflow-x: auto; white-space: nowrap; }
   th, td { font-size: 13px; }
-  .resource-grid { grid-template-columns: 1fr; }
   .help-options { flex-direction: column; }
   .help-option { width: 100%; text-align: left; }
   button, .btn { min-height: 42px; }

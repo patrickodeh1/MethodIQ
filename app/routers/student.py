@@ -6,10 +6,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import asc
 
 from app.database import get_db
-import json
 from app.models import Student, Task, Topic, Submission, AIHelpRequest, StudentEnrollment
 from app.auth import make_token, get_current_student_id, STUDENT_COOKIE, SESSION_MAX_AGE
-from app.judge import judge_submission
+from app.judge import judge_submission, run_code
 from app.templates_env import templates
 from app.phone import normalize_phone_number
 from app.ai import generate_hint
@@ -167,7 +166,6 @@ def task_page(task_id: int, request: Request, db: Session = Depends(get_db)):
             "request": request, "student": student, "task": task,
             "sample_tests": sample_tests, "is_locked": is_locked,
             "already_passed": already_passed, "last_submission": last_submission,
-            "resources": json.loads(task.resources_json or "[]"),
         },
     )
 
@@ -184,9 +182,6 @@ def submit_task(task_id: int, request: Request, code: str = Form(...), db: Sessi
 
     result = judge_submission(
         code, task.test_cases,
-        entry_type=task.entry_type or "stdin",
-        entry_function=task.entry_function or "",
-        class_name=task.class_name or "",
     )
 
     submission = Submission(
@@ -199,6 +194,29 @@ def submit_task(task_id: int, request: Request, code: str = Form(...), db: Sessi
 
     return templates.TemplateResponse(
         "partials/submission_result.html", {"request": request, "result": result, "task": task},
+    )
+
+
+@router.post("/task/{task_id}/run", response_class=HTMLResponse)
+def run_task_code(
+    task_id: int, request: Request, code: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    student = _require_student(request, db)
+    if not student:
+        return RedirectResponse(url="/login", status_code=303)
+
+    task = db.query(Task).get(task_id)
+    if not task or not task.published or not task.topic.course.published or task.topic.course_id not in _enrolled_course_ids(student):
+        return RedirectResponse(url="/dashboard", status_code=303)
+
+    # Interactive execution is deliberately mode-agnostic. Students can run
+    # any Python program directly before formal verification. The editor
+    # content is the complete program; there is no separate task input field.
+    result = run_code(code, "")
+
+    return templates.TemplateResponse(
+        "partials/run_result.html", {"request": request, "result": result},
     )
 
 

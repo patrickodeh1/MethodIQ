@@ -18,18 +18,50 @@ uvicorn app.main:app --reload
 `/admin/login` - admin panel. `/login` - student login (phone number only).
 
 Set `GROQ_API_KEY` in `.env` to enable the **Generate task with AI** button. On
-a course page, give a topic a learning goal and use that button to create a
-draft task and test cases. Review the draft before saving it; the AI does not
-publish anything automatically.
+a course page, give a topic a learning goal and define its comma-separated
+**Concepts taught** whitelist. The whitelist is a hard boundary for generated
+tasks: the AI must not use Python keywords, built-ins, data structures, or
+constructs outside it. Use the Generate task with AI button to create a draft
+task and test cases. Review the draft before saving it; the AI does not publish
+anything automatically.
+
+AI-generated task history is retained separately for each topic. If an
+administrator later deletes a generated task, future generations still know
+what was created and can produce a different or slightly more advanced
+exercise instead of repeating it.
+
+The new `topics.concepts_taught` field requires an existing SQLite database to
+be recreated or altered manually because the project has no migration tooling.
+Either delete `learnplatform.db` before restarting, or run:
+
+```sql
+ALTER TABLE topics ADD COLUMN concepts_taught TEXT DEFAULT '';
+```
 
 Students can use **Ask a fellow student or AI** from a task. The AI tutor is
 configured to provide clues, questions, explanations, and unrelated examples,
 not completed solutions or hidden test values. Students are encouraged to make
 an attempt and can ask follow-up questions after trying the hint.
 
-Course, topic, and task descriptions use the rich Quill editor. Tasks support
-two to five research resources; each resource has a URL and a short guide
-explaining what the student should research.
+Course, topic, and task descriptions use the rich Quill editor.
+
+AI-generated tasks always start with a neutral scaffold:
+`# Write your solution here.` The AI is not allowed to provide task-specific
+variable names, values, print statements, algorithm steps, or expected output
+in starter code. Every task is a complete Python program: test cases provide raw
+stdin text and compare the exact stdout text. Students can use **Run code** to
+execute the complete Python program in the editor and see its actual output
+without creating a submission. **Verify & submit** runs the configured test
+cases and records the submission only after verification.
+
+Test cases and expected outputs remain private grading data. Students may see
+an example input, but the expected output is never shown on the task page.
+After running or verifying, they see the output produced by their own code.
+AI-generated tasks are designed around private input values rather than
+hard-coded answers. For example, an assignment or conversion task should read
+values through `input()`, process them, and print the result; hidden test cases
+can then supply different values without exposing the solution in the
+description.
 
 The built-in admin account has complete access. Admins can create staff
 accounts from the dashboard and select dashboard, course, task, and student
@@ -56,31 +88,11 @@ combined across the published tasks in those courses.
 Nigerian phone numbers are stored and matched canonically. For example,
 `09157250018`, `2349157250018`, and `+2349157250018` identify the same student.
 
-## Test case modes (per task)
+## Test cases
 
-Each Task has an `entry_type`: `stdin`, `function`, or `class`.
-
-- **stdin** (legacy/simple): the student's whole file runs as a program.
-  TestCase.input_json is raw text piped to stdin; TestCase.expected_json is
-  the raw text expected on stdout (compared after stripping whitespace).
-  Good for tasks like "read a number, print FizzBuzz output".
-
-- **function** (LeetCode-style): student defines a plain function, e.g.
-  `def is_even(n): ...`. Task.entry_function = "is_even". TestCase.input_json
-  is a JSON array of positional arguments, e.g. `[2]` or `[2, 3]` or
-  `[[1,2,3]]` (a single list argument). TestCase.expected_json is the
-  expected return value as JSON, e.g. `true`, `5`, `[1,2,3]`. The judge
-  calls `is_even(*args)`, JSON-serializes the return value, and compares.
-
-- **class** (LeetCode-style OOP): student defines a class, e.g.
-  `class Solution: def twoSum(self, nums, target): ...`. Task.class_name =
-  "Solution", Task.entry_function = "twoSum". The judge instantiates the
-  class with no constructor args, then calls the method the same way as
-  function mode.
-
-Only JSON-representable values work for function/class mode (numbers,
-strings, booleans, null, lists, dicts) - matches how LeetCode itself
-represents test cases, and avoids eval() on admin input.
+Every task runs as a normal Python program. Test case input is raw text piped
+to standard input, and expected output is the exact text printed to standard
+output, compared after surrounding whitespace is stripped.
 
 ## Ask for help
 
