@@ -1,14 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Login{% endblock %}
 {% block content %}
-<h1>Student login</h1>
-<p class="muted">Enter the phone number your instructor registered for you.</p>
-<div class="card" style="max-width:360px;">
-  <form method="post" action="/login">
-    <label>Phone number</label>
-    <input type="tel" name="phone_number" required placeholder="e.g. 09012345678">
-    <button type="submit">Log in</button>
-  </form>
-  {% if error %}<p style="color:var(--bad)">{{ error }}</p>{% endif %}
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-brand">Method<span class="brand-iq">IQ</span></div>
+    <h1>Student login</h1>
+    <p class="muted">Enter the phone number your instructor registered for you.</p>
+    <form method="post" action="/login">
+      <label for="phone_number">Phone number</label>
+      <input id="phone_number" type="tel" name="phone_number" required placeholder="e.g. 09012345678">
+      <button type="submit">Log in</button>
+    </form>
+    {% if error %}<p class="login-error">{{ error }}</p>{% endif %}
+  </div>
 </div>
 {% endblock %}
