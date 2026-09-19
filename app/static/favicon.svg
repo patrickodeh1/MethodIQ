@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <style>
+      .iq-bg { fill: #2563eb; }
+      .iq-text { fill: #ffffff; font-family: Arial, sans-serif; font-weight: bold; font-size: 32px; text-anchor: middle; }
+    </style>
+  </defs>
+  <!-- Background -->
+  <rect class="iq-bg" width="64" height="64" rx="8"/>
+  <!-- IQ Text -->
+  <text class="iq-text" x="32" y="44">IQ</text>
+</svg>
