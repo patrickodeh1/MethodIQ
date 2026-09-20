@@ -145,6 +145,13 @@ label.check { display: flex; align-items: center; gap: 6px; width: fit-content; 
 .staff-course-heading h2, .staff-topic-heading h3 { margin: 0 0 6px; }
 .staff-course-description { margin: 14px 0 18px; }
 .staff-topic-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+.staff-topic-list { display: grid; gap: 8px; }
+.staff-topic-collapsible { padding: 14px 0; border-top: 1px solid var(--border); }
+.staff-topic-summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; cursor: pointer; list-style: none; padding: 4px 0; }
+.staff-topic-summary::-webkit-details-marker { display: none; }
+.staff-summary-chevron { color: var(--muted); font-size: 22px; transition: transform .2s; }
+details[open] .staff-summary-chevron { transform: rotate(90deg); }
+details[open] .staff-topic-summary { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
 .staff-topic-panel { padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); }
 .staff-topic-description { margin: 12px 0; font-size: 13px; }
 .staff-task-list { margin-top: 12px; }

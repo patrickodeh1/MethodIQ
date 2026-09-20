@@ -61,16 +61,21 @@ def admin_logout():
 
 
 @router.get("", response_class=HTMLResponse)
-def admin_home(request: Request, db: Session = Depends(get_db)):
+def admin_home(request: Request, db: Session = Depends(get_db), page: int = Query(1, ge=1)):
     guard = _guard(request)
     if guard:
         return guard
-    courses = db.query(Course).order_by(Course.order).all()
+    all_courses = db.query(Course).order_by(Course.order).all()
+    page_size = 5
+    total_pages = max(1, (len(all_courses) + page_size - 1) // page_size)
+    page = min(page, total_pages)
+    courses = all_courses[(page - 1) * page_size:page * page_size]
     return templates.TemplateResponse(
         "admin/dashboard.html",
         {
             "request": request, "courses": courses, "ai_enabled": bool(GROQ_API_KEY),
             "session": get_admin_session(request),
+            "page": page, "total_pages": total_pages, "total_courses": len(all_courses),
         },
     )
 
@@ -177,26 +182,31 @@ def delete_staff(staff_id: int, request: Request, db: Session = Depends(get_db))
 # ---- Staff workspace: read-only curriculum, task publishing, student creation ----
 
 @staff_router.get("", response_class=HTMLResponse)
-def staff_home(request: Request, db: Session = Depends(get_db)):
+def staff_home(request: Request, db: Session = Depends(get_db), page: int = Query(1, ge=1)):
     guard = _staff_guard(request)
     if guard:
         return guard
     courses = db.query(Course).order_by(Course.order).all()
-    course_sections = []
+    topic_pairs = []
     for course in courses:
-        topics = [
-            topic for topic in course.topics
+        topic_pairs.extend(
+            (course, topic) for topic in course.topics
             if any(task for task in topic.tasks)
-        ]
-        if topics:
-            course_sections.append({"course": course, "topics": topics})
+        )
+    page_size = 5
+    total_pages = max(1, (len(topic_pairs) + page_size - 1) // page_size)
+    page = min(page, total_pages)
+    page_pairs = topic_pairs[(page - 1) * page_size:page * page_size]
+    grouped = {}
+    for course, topic in page_pairs:
+        grouped.setdefault(course.id, {"course": course, "topics": []})["topics"].append(topic)
+    course_sections = list(grouped.values())
     return templates.TemplateResponse(
         "staff/dashboard.html",
         {
             "request": request,
-            "courses": courses,
             "course_sections": course_sections,
-            "students": db.query(Student).order_by(Student.created_at.desc()).all(),
+            "page": page, "total_pages": total_pages, "total_topics": len(topic_pairs),
             "session": get_admin_session(request),
         },
     )
@@ -238,13 +248,24 @@ def staff_publish_task(task_id: int, request: Request, db: Session = Depends(get
 
 
 @staff_router.get("/students", response_class=HTMLResponse)
-def staff_students(request: Request, db: Session = Depends(get_db), error: str = None):
+def staff_students(
+    request: Request, db: Session = Depends(get_db), error: str = None,
+    page: int = Query(1, ge=1),
+):
     guard = _staff_guard(request)
     if guard:
         return guard
+    all_students = db.query(Student).order_by(Student.created_at.desc()).all()
+    page_size = 5
+    total_pages = max(1, (len(all_students) + page_size - 1) // page_size)
+    page = min(page, total_pages)
+    students = all_students[(page - 1) * page_size:page * page_size]
     return templates.TemplateResponse(
         "staff/students.html",
-        {"request": request, "students": db.query(Student).order_by(Student.created_at.desc()).all(), "error": error},
+        {
+            "request": request, "students": students, "all_students": all_students,
+            "page": page, "total_pages": total_pages, "error": error,
+        },
     )
 
 

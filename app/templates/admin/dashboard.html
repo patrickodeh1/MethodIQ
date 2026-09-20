@@ -42,4 +42,11 @@
   </form>
 </div>
 {% else %}<p class="muted">No courses yet.</p>{% endfor %}
+{% if total_pages > 1 %}
+  <nav class="pagination" aria-label="Course pages">
+    {% if page > 1 %}<a class="btn secondary" href="/admin?page={{ page - 1 }}">Previous</a>{% endif %}
+    <span class="muted">Page {{ page }} of {{ total_pages }}</span>
+    {% if page < total_pages %}<a class="btn secondary" href="/admin?page={{ page + 1 }}">Next</a>{% endif %}
+  </nav>
+{% endif %}
 {% endblock %}

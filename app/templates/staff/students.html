@@ -1,9 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Add students{% endblock %}
-{% block header_right %}<a href="/staff" class="btn secondary">Staff dashboard</a>{% endblock %}
+{% block header_right %}
+  <a href="/staff" class="btn secondary">← Curriculum</a>
+  <a href="/admin/logout" class="btn secondary">Log out</a>
+{% endblock %}
 {% block content %}
 <h1>Add students</h1>
-<p class="muted">Staff can create student records but cannot delete or assign courses.</p>
+<p class="muted">Create student records from this page. Five students are shown per page.</p>
 {% if error %}<div class="result-box fail">{{ error }}</div>{% endif %}
 <div class="card">
   <form method="post" action="/staff/students">
@@ -15,5 +18,12 @@
 <div class="card">
   <h2>Existing students</h2>
   {% for student in students %}<div class="staff-course-row"><span>{{ student.name }}</span><span class="muted">{{ student.phone_number }}</span></div>{% else %}<p class="muted">No students yet.</p>{% endfor %}
+  {% if total_pages > 1 %}
+    <nav class="pagination" aria-label="Student pages">
+      {% if page > 1 %}<a class="btn secondary" href="/staff/students?page={{ page - 1 }}">Previous</a>{% endif %}
+      <span class="muted">Page {{ page }} of {{ total_pages }}</span>
+      {% if page < total_pages %}<a class="btn secondary" href="/staff/students?page={{ page + 1 }}">Next</a>{% endif %}
+    </nav>
+  {% endif %}
 </div>
 {% endblock %}
