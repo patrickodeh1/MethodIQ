@@ -27,6 +27,8 @@ class Topic(Base):
     order = Column(Integer, default=0)
     goal = Column(Text, default="")  # what a student should be able to do after this topic/stage - used as AI context
     concepts_taught = Column(Text, default="")  # comma-separated whitelist of concepts allowed in AI-generated tasks; enforced as a hard boundary rather than inferred
+    entry_mode = Column(String(20), default="function")  # "function" or "class" - default harness mode for tasks generated in this topic
+    resources_json = Column(Text, default="[]")  # JSON list of {"title": str, "url": str, "note": str} curated resources for this topic
 
     course = relationship("Course", back_populates="topics")
     tasks = relationship("Task", back_populates="topic", order_by="Task.order", cascade="all, delete-orphan")
@@ -41,6 +43,9 @@ class Task(Base):
     description_format = Column(String(20), default="html")
     published = Column(Boolean, default=False, nullable=False)
     starter_code = Column(Text, default="")
+    entry_function = Column(String(100), default="")  # function/method name students must define; blank = legacy stdin/stdout task
+    params = Column(Text, default="")  # comma-separated parameter names, in call order
+    entry_mode = Column(String(20), default="function")  # "function" or "class" - how this specific task is graded
     order = Column(Integer, default=0)
 
     topic = relationship("Topic", back_populates="tasks")

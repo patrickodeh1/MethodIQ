@@ -23,6 +23,11 @@ def ensure_schema():
             ("topics", "concepts_taught", "TEXT DEFAULT ''"),
             ("courses", "published", "BOOLEAN DEFAULT 0"),
             ("tasks", "published", "BOOLEAN DEFAULT 0"),
+            ("topics", "entry_mode", "VARCHAR(20) DEFAULT 'function'"),
+            ("topics", "resources_json", "TEXT DEFAULT '[]'"),
+            ("tasks", "entry_function", "VARCHAR(100) DEFAULT ''"),
+            ("tasks", "params", "TEXT DEFAULT ''"),
+            ("tasks", "entry_mode", "VARCHAR(20) DEFAULT 'function'"),
         ):
             columns = connection.execute(text(f"PRAGMA table_info({table})")).fetchall()
             if not any(row[1] == column for row in columns):

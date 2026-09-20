@@ -500,6 +500,8 @@ async def create_task_from_draft(topic_id: int, request: Request, db: Session = 
     title = (form.get("title") or "").strip()
     description = form.get("description") or ""
     starter_code = form.get("starter_code") or ""
+    entry_function = (form.get("entry_function") or "").strip()
+    params = (form.get("params") or "").strip()
     order = int(form.get("order") or 0)
 
     if not title:
@@ -509,6 +511,7 @@ async def create_task_from_draft(topic_id: int, request: Request, db: Session = 
 
     task = Task(
         topic_id=topic_id, title=title, description=description, starter_code=starter_code,
+        entry_function=entry_function, params=params, entry_mode="function" if entry_function else "",
         order=order,
     )
     db.add(task)

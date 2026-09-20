@@ -181,7 +181,7 @@ def submit_task(task_id: int, request: Request, code: str = Form(...), db: Sessi
         return RedirectResponse(url="/dashboard", status_code=303)
 
     result = judge_submission(
-        code, task.test_cases,
+        code, task.test_cases, entry_function=task.entry_function,
     )
 
     submission = Submission(
