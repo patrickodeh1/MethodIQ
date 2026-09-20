@@ -3,100 +3,148 @@ import re
 import httpx
 
 from app.config import GROQ_API_KEY, GROQ_MODEL, GROQ_API_URL
-from app.judge import run_code
+from app.judge import run_function
 
 # ---------------------------------------------------------------------------
 # Pipeline overview
 # ---------------------------------------------------------------------------
-# A single model call cannot both invent a problem description AND invent
-# matching test data AND keep the answer out of the description, because it
-# has to hold the answer in its own output to do the second part. Splitting
-# generation into separate calls, each of which only sees what it needs,
-# removes the leak vector instead of trying to filter it out after the fact:
+# Tasks are function-call exercises, like LeetCode: the student fills in the
+# body of a provided function stub, and hidden tests call that function with
+# varied arguments and check the return value. This guarantees real, private
+# input variability at every stage of the course - even before a topic
+# formally teaches stdin/input(), because function parameters are the input
+# channel, not typed keystrokes.
 #
-#   1. SPEC       -> title, description, starter_code (no test data at all)
-#   2. SOLUTION   -> a private reference solution for that spec (never shown
-#                    to students, never fed back into the spec step)
-#   3. TEST INPUT -> raw stdin strings only (no expected output invented)
-#   4. EXECUTE    -> run the reference solution against each input for real;
-#                    whatever it prints becomes expected_json. Test cases are
-#                    therefore guaranteed correct, not guessed.
+# Convention: from the very first topic, the student's code goes inside a
+# provided `def entry_function(...):` stub. This is a harness contract, not a
+# concept being taught early - the student doesn't need to understand scope,
+# default args, or multiple return paths to use it, the same way beginners
+# are told to just use print() before they understand streams. The formal
+# "Functions" topic later teaches what's actually happening inside the box.
+#
+# Generation is split into separate calls so nothing can leak the answer into
+# public-facing text - each step only ever sees what it needs:
+#
+#   1. SPEC       -> title, description, entry_function name, param names.
+#                    No test data, no starter code (built deterministically
+#                    server-side from entry_function + params).
+#   2. SOLUTION   -> a private reference implementation of entry_function,
+#                    from the spec alone. Never shown to students/admins.
+#   3. TEST ARGS  -> sets of keyword arguments only, no expected output
+#                    invented.
+#   4. EXECUTE    -> call the reference solution for real with each arg set
+#                    via judge.run_function(); whatever it returns becomes
+#                    expected_json. Test cases are therefore guaranteed
+#                    correct, never guessed.
 #   5. LEAK CHECK -> deterministic containment check: does any expected
-#                    output string appear in the description/starter_code?
-#                    If so, regenerate only the spec step and re-check.
+#                    return value appear verbatim in the description? If so,
+#                    regenerate only the spec step and re-check.
 # ---------------------------------------------------------------------------
 
 SPEC_SYSTEM_PROMPT = """You write ONE coding exercise's public-facing spec for
-a self-paced, task-based course. You will be given the course's description,
-the current topic's description and goal, a hard whitelist of concepts the
-student is allowed to use, and a history of tasks already created for this
-topic (including deleted ones) to avoid repeating.
+a self-paced, task-based course, in the style of a LeetCode problem: the
+student fills in the body of a function, and hidden tests call it with
+varied arguments to check the return value.
+
+You will be given the course's description, the current topic's description
+and goal, a hard whitelist of concepts the student is allowed to use, and a
+history of tasks already created for this topic (including deleted ones) to
+avoid repeating.
 
 Ground rules:
-- The whitelist of concepts is a hard boundary, not a suggestion. Do not use
-  any Python keyword, built-in, data structure, syntax, or construct outside
-  it, even if it seems like a natural fit for the course's subject matter.
+- CRITICAL framing: the student will be given a working function signature
+  already filled in for them (e.g. `def process_values(num_str, flag):`),
+  with the parameters already holding real values. Their only job is to
+  write what happens inside the body and end it with a `return` statement.
+  NEVER phrase the description as "write a function that...", "define a
+  function named...", or anything implying the student creates the
+  function itself - they don't need to know function-definition syntax at
+  all if it isn't in their whitelist. Instead phrase it like: "You are
+  given num_str and flag. Do X with them and return Y." Treat `return` the
+  same way early topics treat print() - a tool they're told to just use,
+  not a concept they need to understand deeply yet.
+- The whitelist of concepts is a hard boundary, not a suggestion. Do not
+  require the student's function BODY to use any Python keyword, built-in,
+  data structure, syntax, or construct outside it, even if it seems like a
+  natural fit for the course's subject matter. (The function signature itself
+  - def, parameters, return - is a provided harness the student fills in, not
+  something they need to have "learned" yet; only the whitelist governs what
+  they must write inside the body.)
+- Avoid built-ins whose behavior is a common beginner "gotcha" unless the
+  exercise is specifically teaching that gotcha with an explanation. In
+  particular: bool() of any non-empty string or non-zero number is always
+  True regardless of its content (bool("False") is True, bool("0") is
+  True) - never build an exercise around converting a string or number to
+  bool as if it reflects the value's apparent meaning.
 - If the topic's goal cannot be fully achieved within the whitelist, write a
   smaller exercise that stays completely within it.
 - Do not assume knowledge from topics that come later in the course.
 - Match the tone and level of the course/topic descriptions given to you: for
   an absolute-beginner, self-paced course, write a small, concrete, plainly
   worded exercise, not a competitive-programming problem.
-- The exercise is always a complete Python program that reads input with
-  input() (when the whitelist includes it) and prints the required result.
-  Describe the input format and the required output behavior in plain
-  language. Do NOT include any worked example with concrete numbers, sample
-  calculations, or a specific expected output string anywhere in the
-  description. You do not know the hidden test data yet, so there is nothing
-  to leak, and it must stay that way: never write example input/output pairs.
-- starter_code must be a neutral blank scaffold only (e.g. a short comment).
-  Never include variable names, literal values, print statements, TODO
-  examples, or anything that hints at the solution's shape.
+- Choose a clear, descriptive entry_function name in snake_case, and 1-4
+  short, descriptive parameter names in snake_case. Parameters should be
+  simple values (numbers, strings, booleans, or - only if the whitelist
+  includes them - lists/dicts), never objects the whitelist hasn't covered.
+- Describe the function's required parameters and return value in plain
+  language: what each parameter represents, and exactly what the function
+  should return. Do NOT include any worked example with concrete argument
+  values, a sample calculation, or a specific return value anywhere in the
+  description. You do not know the hidden test data yet, and it must stay
+  that way: never write example input/output pairs.
 - Do not repeat the idea of any task in the provided history; if an earlier
   task used the same basic idea, write a meaningfully different or slightly
   more advanced exercise while staying within the whitelist.
 - Output only JSON with exactly these fields: title, description,
-  starter_code.
+  entry_function, params (a list of parameter name strings, in call order).
 """
 
-SOLUTION_SYSTEM_PROMPT = """You write a private reference solution for a
-coding exercise. This solution is never shown to students or admins - it
-exists only so the grading system can compute correct expected outputs by
-actually running it. You will be given the exercise's title, description, and
-the whitelist of concepts the student is allowed to use.
+SOLUTION_SYSTEM_PROMPT = """You write a private reference implementation for
+a coding exercise's function. This solution is never shown to students or
+admins - it exists only so the grading system can compute correct expected
+return values by actually calling it. You will be given the exercise's
+title, description, entry_function name, its parameters, and the whitelist
+of concepts the student is allowed to use for the body.
 
 Rules:
-- Write ONE complete, correct Python script that reads all required input
-  with input() and prints exactly the output the description asks for,
-  nothing extra.
-- Prefer using only the given whitelist so the exercise stays solvable by a
-  student who only knows those concepts, but prioritize correctness if the
-  whitelist is ambiguous or incomplete for the task.
-- Do not print any debug output, prompts, or extra text beyond what the
-  description specifies.
-- Output only JSON with exactly one field: solution_code (a string containing
-  the full script).
+- Write ONE complete Python function definition named exactly the given
+  entry_function, taking exactly the given parameters (in that order), that
+  correctly implements what the description asks for and returns the
+  required value (never prints it).
+- Prefer using only the given whitelist inside the body so the exercise stays
+  solvable by a student who only knows those concepts, but prioritize
+  correctness if the whitelist is ambiguous or incomplete for the task.
+- Avoid built-ins whose behavior is a common beginner "gotcha" unless the
+  description explicitly calls for it. In particular, do not convert a
+  string or number to bool with bool() expecting it to reflect the value's
+  apparent meaning (bool("False") and bool("0") are both True).
+- Define nothing except that one function. No prints, no top-level code, no
+  example calls.
+- Output only JSON with exactly one field: solution_code (a string
+  containing the full function definition).
 """
 
-TESTGEN_SYSTEM_PROMPT = """You generate raw stdin test inputs for a coding
-exercise, given its title and description. You do NOT generate expected
-output - that is computed separately by actually running a reference
-solution.
+TESTGEN_SYSTEM_PROMPT = """You generate test argument sets for a coding
+exercise's function, given its title, description, entry_function name, and
+parameters. You do NOT generate expected return values - those are computed
+separately by actually calling a reference solution.
 
 Rules:
-- Produce at least 5 distinct, varied inputs that meaningfully exercise the
-  behavior described (different values, not just cosmetic variants).
-- Each input is the exact raw text that would be typed/piped to the program's
-  stdin, matching the number and order of values the description implies.
-- Mark exactly ONE input as a sample (is_sample: true); all others are
-  is_sample: false.
-- Output only JSON with exactly one field: test_inputs, a list of objects
-  each shaped {"input": "...", "is_sample": true|false}.
+- Produce at least 5 distinct, varied argument sets that meaningfully
+  exercise the behavior described (different values, not just cosmetic
+  variants; include simple edge cases where relevant, e.g. zero, empty,
+  boundary values, only if they still fit within a beginner-appropriate
+  version of the task).
+- Each argument set is a JSON object mapping every parameter name to a
+  concrete value of the correct type.
+- Mark exactly ONE argument set as a sample (is_sample: true); all others
+  are is_sample: false.
+- Output only JSON with exactly one field: test_args, a list of objects each
+  shaped {"args": {...param_name: value...}, "is_sample": true|false}.
 """
 
 _TAG_RE = re.compile(r"<[^>]+>")
-SAFE_STARTER_CODE = "# Write your solution here.\n"
-_MIN_LEAK_TOKEN_LEN = 3  # ignore trivial/short outputs (e.g. "0", "1") in the containment check
+_MIN_LEAK_TOKEN_LEN = 3  # ignore trivial/short return values (e.g. "0", "1") in the containment check
 
 
 def _strip_html(text: str) -> str:
@@ -141,11 +189,26 @@ def _call_json(system_prompt: str, user_prompt: str, required_fields: set) -> di
     return data
 
 
-def _description_leaks_answer(description: str, starter_code: str, test_cases: list) -> bool:
-    """Deterministic containment check: does any real expected output show up
-    verbatim in the public-facing text? This replaces keyword-guessing with
-    an exact substring check against the actual computed answers."""
-    haystack = f"{_strip_html(description)}\n{starter_code}".lower()
+def _valid_identifier(name: str) -> bool:
+    return bool(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name or ""))
+
+
+def _build_starter_code(entry_function: str, params: list) -> str:
+    """Always built server-side from names alone - the model never authors
+    starter code, so it cannot hint at an approach, a variable's role, or
+    the solution's shape."""
+    signature = ", ".join(params)
+    return (
+        f"def {entry_function}({signature}):\n"
+        f"    # Write your solution here.\n"
+        f"    pass\n"
+    )
+
+
+def _description_leaks_answer(description: str, test_cases: list) -> bool:
+    """Deterministic containment check: does any real return value show up
+    verbatim in the public-facing text?"""
+    haystack = _strip_html(description).lower()
     for tc in test_cases:
         expected = str(tc.get("expected_json", "")).strip().lower()
         if len(expected) >= _MIN_LEAK_TOKEN_LEN and expected in haystack:
@@ -154,48 +217,70 @@ def _description_leaks_answer(description: str, starter_code: str, test_cases: l
 
 
 def _generate_spec(context_prompt: str) -> dict:
-    return _call_json(
-        SPEC_SYSTEM_PROMPT, context_prompt, {"title", "description", "starter_code"}
+    spec = _call_json(
+        SPEC_SYSTEM_PROMPT, context_prompt,
+        {"title", "description", "entry_function", "params"},
     )
+    params = spec.get("params") or []
+    if not isinstance(params, list) or not params or not all(_valid_identifier(p) for p in params):
+        raise RuntimeError("AI returned invalid parameter names.")
+    if not _valid_identifier(spec.get("entry_function", "")):
+        raise RuntimeError("AI returned an invalid entry_function name.")
+    return spec
 
 
-def _generate_solution(title: str, description: str, concepts_taught: str) -> str:
+def _generate_solution(title: str, description: str, entry_function: str, params: list, concepts_taught: str) -> str:
     prompt = (
         f"Title: {title}\n"
         f"Description: {description}\n"
-        f"Concepts whitelist (prefer these, but be correct above all): "
+        f"entry_function: {entry_function}\n"
+        f"params (in order): {', '.join(params)}\n"
+        f"Concepts whitelist for the body (prefer these, but be correct above all): "
         f"{concepts_taught or '(none listed)'}\n"
     )
     data = _call_json(SOLUTION_SYSTEM_PROMPT, prompt, {"solution_code"})
     return data["solution_code"]
 
 
-def _generate_test_inputs(title: str, description: str) -> list:
-    prompt = f"Title: {title}\nDescription: {description}\n"
-    data = _call_json(TESTGEN_SYSTEM_PROMPT, prompt, {"test_inputs"})
-    inputs = data.get("test_inputs") or []
-    if not isinstance(inputs, list) or len(inputs) < 4:
-        raise RuntimeError("AI did not return enough test inputs.")
-    return inputs
+def _generate_test_args(title: str, description: str, entry_function: str, params: list) -> list:
+    prompt = (
+        f"Title: {title}\nDescription: {description}\n"
+        f"entry_function: {entry_function}\nparams (in order): {', '.join(params)}\n"
+    )
+    data = _call_json(TESTGEN_SYSTEM_PROMPT, prompt, {"test_args"})
+    test_args = data.get("test_args") or []
+    if not isinstance(test_args, list) or len(test_args) < 4:
+        raise RuntimeError("AI did not return enough test argument sets.")
+    return test_args
 
 
-def _build_test_cases(solution_code: str, test_inputs: list) -> list:
-    """Run the reference solution for real against each input. Expected
-    output is whatever the solution actually prints - never guessed."""
+def _build_test_cases(solution_code: str, entry_function: str, params: list, test_args: list) -> list:
+    """Run the reference solution for real against each argument set.
+    Expected value is whatever the solution actually returns - never
+    guessed."""
     test_cases = []
     sample_seen = False
-    for item in test_inputs:
-        stdin_text = str(item.get("input", ""))
-        result = run_code(solution_code, stdin_text)
+    for item in test_args:
+        args = item.get("args") or {}
+        if set(args.keys()) != set(params):
+            raise RuntimeError(
+                f"Generated test args {list(args.keys())} do not match "
+                f"params {params}."
+            )
+        result = run_function(solution_code, entry_function, args)
         if result["error"] or result["stderr"].strip():
             raise RuntimeError(
                 "Reference solution failed to run cleanly on a generated "
-                f"input: {result['error'] or result['stderr'].strip()}"
+                f"argument set: {result['error'] or result['stderr'].strip()}"
             )
+        try:
+            json.loads(result["stdout"] or "null")
+        except json.JSONDecodeError:
+            raise RuntimeError("Reference solution's return value was not JSON-serializable.")
         is_sample = bool(item.get("is_sample")) and not sample_seen
         sample_seen = sample_seen or is_sample
         test_cases.append({
-            "input_json": stdin_text,
+            "input_json": json.dumps(args),
             "expected_json": (result["stdout"] or "").strip(),
             "is_sample": is_sample,
         })
@@ -235,7 +320,7 @@ def generate_task_draft(
         f"Current topic: {topic_name}\n"
         f"Current topic description: {_strip_html(topic_description) or '(none)'}\n"
         f"Current topic goal: {stage_goal or '(none)'}\n\n"
-        f"Current topic concepts taught (hard whitelist; use only these): "
+        f"Current topic concepts taught (hard whitelist for the function body; use only these): "
         f"{concepts_taught or '(none listed)'}\n\n"
         f"Existing task titles in this topic (do not repeat): {', '.join(existing_task_titles) or '(none)'}\n\n"
         f"Tasks previously generated for this topic, including deleted tasks "
@@ -243,44 +328,43 @@ def generate_task_draft(
         f"{generated_history_summary}\n"
     )
 
-    spec = _generate_spec(context_prompt)
+    def _generate_full(prompt):
+        spec = _generate_spec(prompt)
+        solution_code = _generate_solution(
+            spec["title"], spec["description"], spec["entry_function"], spec["params"], concepts_taught,
+        )
+        test_args = _generate_test_args(
+            spec["title"], spec["description"], spec["entry_function"], spec["params"],
+        )
+        test_cases = _build_test_cases(solution_code, spec["entry_function"], spec["params"], test_args)
+        return spec, test_cases
 
-    # Solution and test-input generation don't need the full course context -
-    # only the finished spec and the whitelist, so they can't reintroduce
-    # anything the spec step deliberately left out.
-    solution_code = _generate_solution(spec["title"], spec["description"], concepts_taught)
-    test_inputs = _generate_test_inputs(spec["title"], spec["description"])
-    test_cases = _build_test_cases(solution_code, test_inputs)
+    spec, test_cases = _generate_full(context_prompt)
 
-    if _description_leaks_answer(spec["description"], spec["starter_code"], test_cases):
-        # Only the spec is at fault here (it's the only step that produced
-        # public-facing text), so only regenerate that, with the concrete
-        # leaked context stripped, before failing outright.
+    if _description_leaks_answer(spec["description"], test_cases):
+        # Only the spec step produces public-facing text, so only it can be
+        # at fault; regenerate just that, once, before failing outright.
         retry_prompt = (
             context_prompt
-            + "\nA previous attempt at this spec leaked a computed answer "
-              "value into the description or starter_code. Rewrite the spec "
-              "so it describes the input format and required behavior only, "
-              "with no example numbers, no sample calculation, and no "
-              "specific output text anywhere."
+            + "\nA previous attempt at this spec leaked a computed return "
+              "value into the description. Rewrite the spec so it describes "
+              "the parameters and required return value only, with no "
+              "example arguments, no sample calculation, and no specific "
+              "return value anywhere."
         )
-        spec = _generate_spec(retry_prompt)
-        solution_code = _generate_solution(spec["title"], spec["description"], concepts_taught)
-        test_inputs = _generate_test_inputs(spec["title"], spec["description"])
-        test_cases = _build_test_cases(solution_code, test_inputs)
-        if _description_leaks_answer(spec["description"], spec["starter_code"], test_cases):
+        spec, test_cases = _generate_full(retry_prompt)
+        if _description_leaks_answer(spec["description"], test_cases):
             raise RuntimeError(
-                "Generated task leaked an answer value twice in a row. "
+                "Generated task leaked a return value twice in a row. "
                 "The draft was blocked; try generating again."
             )
 
     return {
         "title": spec["title"],
         "description": spec["description"],
-        # Never trust model-generated starter code, even after the leak
-        # check: a clean-looking scaffold can still bias the student toward
-        # specific variable names or an approach. Always blank it.
-        "starter_code": SAFE_STARTER_CODE,
+        "entry_function": spec["entry_function"],
+        "params": spec["params"],
+        "starter_code": _build_starter_code(spec["entry_function"], spec["params"]),
         "test_cases": test_cases,
     }
 
