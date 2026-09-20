@@ -1,23 +1,51 @@
 {% extends "base.html" %}
-{% block title %}Add students{% endblock %}
+{% block title %}Students{% endblock %}
 {% block header_right %}
   <a href="/staff" class="btn secondary">← Curriculum</a>
   <a href="/admin/logout" class="btn secondary">Log out</a>
 {% endblock %}
 {% block content %}
-<h1>Add students</h1>
-<p class="muted">Create student records from this page. Five students are shown per page.</p>
+<div class="staff-welcome">
+  <div>
+    <span class="eyebrow">Learner directory</span>
+    <h1>Students</h1>
+    <p class="muted">Create and manage student records from one place.</p>
+  </div>
+  <span class="badge">{{ all_students|length }} student{% if all_students|length != 1 %}s{% endif %}</span>
+</div>
 {% if error %}<div class="result-box fail">{{ error }}</div>{% endif %}
-<div class="card">
-  <form method="post" action="/staff/students">
-    <label>Name</label><input name="name" required>
-    <label>Phone number</label><input name="phone_number" type="tel" required placeholder="e.g. 09012345678">
+<section class="staff-section card student-create-card">
+  <div class="section-heading">
+    <div><span class="eyebrow">New learner</span><h2>Create a student</h2></div>
+    <span class="muted">Five students are shown per page</span>
+  </div>
+  <form method="post" action="/staff/students" class="staff-student-form">
+    <div><label>Name</label><input name="name" required placeholder="Student name"></div>
+    <div><label>Phone number</label><input name="phone_number" type="tel" required placeholder="e.g. 09012345678"></div>
     <button type="submit">Create student</button>
   </form>
-</div>
-<div class="card">
-  <h2>Existing students</h2>
-  {% for student in students %}<div class="staff-course-row"><span>{{ student.name }}</span><span class="muted">{{ student.phone_number }}</span></div>{% else %}<p class="muted">No students yet.</p>{% endfor %}
+</section>
+<section class="staff-section card student-directory-card">
+  <div class="section-heading">
+    <div><span class="eyebrow">Directory</span><h2>Existing students</h2></div>
+    <span class="muted">Page {{ page }} of {{ total_pages }}</span>
+  </div>
+  {% if students %}
+    <div class="student-directory-list">
+      {% for student in students %}
+        <div class="student-directory-row">
+          <span class="student-avatar">{{ student.name[:1]|upper }}</span>
+          <div class="student-directory-details">
+            <strong>{{ student.name }}</strong>
+            <span class="muted">{{ student.phone_number }}</span>
+          </div>
+          <span class="badge">Student</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state"><h3>No students yet</h3><p class="muted">Create the first student using the form above.</p></div>
+  {% endif %}
   {% if total_pages > 1 %}
     <nav class="pagination" aria-label="Student pages">
       {% if page > 1 %}<a class="btn secondary" href="/staff/students?page={{ page - 1 }}">Previous</a>{% endif %}
