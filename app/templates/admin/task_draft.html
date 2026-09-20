@@ -15,7 +15,7 @@
     <label>Description</label>
     <div class="rich-editor" data-target="draft-description"></div>
     <textarea id="draft-description" name="description" hidden>{{ draft.description }}</textarea>
-    <label>Function name <span class="muted">(students fill in this function's body; hidden tests call it directly)</span></label>
+    <label>Function name <span class="muted">(students fill in this function's body; test cases call it directly)</span></label>
     <input type="text" name="entry_function" value="{{ draft.entry_function }}">
     <label>Parameters <span class="muted">(comma-separated, in call order)</span></label>
     <input type="text" name="params" value="{{ draft.params|join(', ') }}">

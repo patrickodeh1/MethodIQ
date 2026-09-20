@@ -11,7 +11,7 @@
           <div class="muted">Input</div>
           <pre class="output-value">{{ test.input }}</pre>
         {% else %}
-          <div class="muted">Hidden test input</div>
+          <div class="muted">Input (none)</div>
         {% endif %}
         <div class="muted">Your output</div>
         <pre class="output-value">{{ test.actual if test.actual else '(no output)' }}</pre>
@@ -26,6 +26,11 @@
   </div>
   {% if result.passed %}
     <div class="result-box pass"><b>Accepted</b> &mdash; all {{ result.tests_total }} tests passed.</div>
+    {% if next_task %}
+      <a class="btn" href="/task/{{ next_task.id }}" style="margin-top:12px;">Attempt next task: {{ next_task.title }}</a>
+    {% else %}
+      <div class="result-box pass" style="margin-top:12px;">You completed all tasks in this course.</div>
+    {% endif %}
   {% else %}
     <div class="result-box fail">
       <b>Not accepted</b> &mdash; {{ result.tests_passed }}/{{ result.tests_total }} tests passed.
@@ -33,7 +38,7 @@
         <p class="muted">Output from your program (last failing run):</p>
         <div class="error-output">{{ result.error_output }}</div>
       {% else %}
-        <p class="muted">Your code ran without errors but didn't match the expected output for at least one hidden case. Review the description and edge cases, then try again.</p>
+        <p class="muted">Your code ran without errors but didn't match the expected output for at least one test case. Review the description and edge cases, then try again.</p>
       {% endif %}
     </div>
   {% endif %}

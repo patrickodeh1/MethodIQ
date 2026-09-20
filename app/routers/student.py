@@ -24,6 +24,29 @@ def _ordered_tasks_for_course(db: Session, course_id: int):
     )
 
 
+def _next_task_for_course(db: Session, student: Student, course_id: int, passed_ids=None):
+    passed_ids = passed_ids if passed_ids is not None else {
+        submission.task_id
+        for submission in db.query(Submission).filter(
+            Submission.student_id == student.id,
+            Submission.passed.is_(True),
+        ).all()
+    }
+    return next(
+        (task for task in _ordered_tasks_for_course(db, course_id) if task.id not in passed_ids),
+        None,
+    )
+
+
+def _task_is_locked(db: Session, task: Task, passed_ids):
+    for course_task in _ordered_tasks_for_course(db, task.topic.course_id):
+        if course_task.id == task.id:
+            return False
+        if course_task.id not in passed_ids:
+            return True
+    return False
+
+
 def _enrolled_courses(student: Student):
     return [
         enrollment.course for enrollment in student.enrollments
@@ -107,25 +130,41 @@ def dashboard(request: Request, db: Session = Depends(get_db), page: int = Query
     if not student:
         return RedirectResponse(url="/login", status_code=303)
 
-    current_task, passed_ids, all_tasks = _student_progress(db, student)
     enrolled_courses = _enrolled_courses(student)
+    current_task, passed_ids, all_tasks = _student_progress(db, student)
     total = len(all_tasks)
     score_pct = round(100 * len(passed_ids) / total) if total else 0
-    history = [t for t in all_tasks if t.id in passed_ids]
-    page_size = 5
-    total_pages = max(1, (len(all_tasks) + page_size - 1) // page_size)
-    page = min(page, total_pages)
-    history_page_tasks = all_tasks[(page - 1) * page_size:page * page_size]
+    course_sections = []
+    for course in enrolled_courses:
+        topics = []
+        previous_in_course_incomplete = False
+        for topic in course.topics:
+            tasks = [
+                {
+                    "task": task,
+                    "completed": task.id in passed_ids,
+                    "locked": False,
+                }
+                for task in topic.tasks
+                if task.published
+            ]
+            for task_view in tasks:
+                task_view["locked"] = previous_in_course_incomplete
+                if not task_view["completed"]:
+                    previous_in_course_incomplete = True
+            if tasks:
+                topics.append({"topic": topic, "tasks": tasks})
+        if topics:
+            course_sections.append({"course": course, "topics": topics})
 
     return templates.TemplateResponse(
         "dashboard.html",
         {
             "request": request, "student": student, "current_task": current_task,
-            "history": history, "score_pct": score_pct,
+            "score_pct": score_pct,
             "passed_count": len(passed_ids), "total_count": total,
             "all_tasks": all_tasks, "passed_ids": passed_ids,
-            "history_page_tasks": history_page_tasks, "history_page": page,
-            "history_total_pages": total_pages,
+            "course_sections": course_sections,
             "enrolled_courses": enrolled_courses,
         },
     )
@@ -142,17 +181,11 @@ def task_page(task_id: int, request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url="/dashboard", status_code=303)
 
     _, passed_ids, all_tasks = _student_progress(db, student)
-    is_locked = False
-    if task.id not in passed_ids:
-        for t in all_tasks:
-            if t.id == task.id:
-                break
-            if t.id not in passed_ids:
-                is_locked = True
-                break
+    is_locked = _task_is_locked(db, task, passed_ids)
 
     sample_tests = [tc for tc in task.test_cases if tc.is_sample]
     already_passed = task.id in passed_ids
+    next_task = _next_task_for_course(db, student, task.topic.course_id, passed_ids)
 
     last_submission = (
         db.query(Submission)
@@ -166,6 +199,7 @@ def task_page(task_id: int, request: Request, db: Session = Depends(get_db)):
             "request": request, "student": student, "task": task,
             "sample_tests": sample_tests, "is_locked": is_locked,
             "already_passed": already_passed, "last_submission": last_submission,
+            "next_task": next_task,
         },
     )
 
@@ -180,6 +214,16 @@ def submit_task(task_id: int, request: Request, code: str = Form(...), db: Sessi
     if not task or not task.published or not task.topic.course.published or task.topic.course_id not in _enrolled_course_ids(student):
         return RedirectResponse(url="/dashboard", status_code=303)
 
+    passed_ids = {
+        submission.task_id
+        for submission in db.query(Submission).filter(
+            Submission.student_id == student.id,
+            Submission.passed.is_(True),
+        ).all()
+    }
+    if _task_is_locked(db, task, passed_ids):
+        return RedirectResponse(url="/dashboard", status_code=303)
+
     result = judge_submission(
         code, task.test_cases, entry_function=task.entry_function,
     )
@@ -192,8 +236,18 @@ def submit_task(task_id: int, request: Request, code: str = Form(...), db: Sessi
     db.add(submission)
     db.commit()
 
+    next_task = (
+        _next_task_for_course(db, student, task.topic.course_id)
+        if result["passed"] else None
+    )
     return templates.TemplateResponse(
-        "partials/submission_result.html", {"request": request, "result": result, "task": task},
+        "partials/submission_result.html",
+        {
+            "request": request,
+            "result": result,
+            "task": task,
+            "next_task": next_task,
+        },
     )
 
 

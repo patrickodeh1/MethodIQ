@@ -352,6 +352,24 @@ def delete_topic(topic_id: int, request: Request, db: Session = Depends(get_db))
     return RedirectResponse(url=f"/admin/courses/{course_id}" if course_id else "/admin", status_code=303)
 
 
+@router.post("/topics/{topic_id}/edit")
+async def edit_topic(topic_id: int, request: Request, db: Session = Depends(get_db)):
+    guard = _guard(request, "courses")
+    if guard:
+        return guard
+    topic = db.query(Topic).get(topic_id)
+    if not topic:
+        return RedirectResponse(url="/admin", status_code=303)
+    form = await request.form()
+    topic.name = (form.get("name") or topic.name).strip()
+    topic.description = form.get("description") or ""
+    topic.goal = form.get("goal") or ""
+    topic.concepts_taught = (form.get("concepts_taught") or "").strip()
+    topic.order = int(form.get("order") or 0)
+    db.commit()
+    return RedirectResponse(url=f"/admin/courses/{topic.course_id}", status_code=303)
+
+
 # ---- Tasks ----
 
 @router.get("/tasks/{task_id}", response_class=HTMLResponse)

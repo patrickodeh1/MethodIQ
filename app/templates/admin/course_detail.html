@@ -25,7 +25,7 @@
 
 <div class="card ai-panel">
   <h3>Build the roadmap with AI</h3>
-  <p class="muted">Set a goal for each topic, then generate a task manually. The draft includes the exercise and hidden test cases; nothing is published until you review and save it.</p>
+  <p class="muted">Set a goal for each topic, then generate a task manually. The draft includes the exercise and test cases; nothing is published until you review and save it.</p>
 </div>
 
 <div class="card">
@@ -50,6 +50,23 @@
   <div class="rich-content">{{ topic.description|safe }}</div>
   {% if topic.goal %}<p class="muted"><b>Goal:</b> {{ topic.goal }}</p>{% endif %}
   {% if topic.concepts_taught %}<p class="muted"><b>Concepts taught:</b> {{ topic.concepts_taught }}</p>{% endif %}
+  <details style="margin:12px 0;">
+    <summary class="muted">Edit topic</summary>
+    <form method="post" action="/admin/topics/{{ topic.id }}/edit" style="margin-top:10px;">
+      <label>Name</label>
+      <input type="text" name="name" value="{{ topic.name }}" required>
+      <label>Description</label>
+      <div class="rich-editor" data-target="topic-description-edit-{{ topic.id }}"></div>
+      <textarea id="topic-description-edit-{{ topic.id }}" name="description" hidden>{{ topic.description }}</textarea>
+      <label>Goal (what should a student be able to do after this topic? used to guide AI task generation)</label>
+      <textarea name="goal" rows="2">{{ topic.goal }}</textarea>
+      <label>Concepts taught (comma-separated whitelist enforced as a hard boundary for AI task generation)</label>
+      <textarea name="concepts_taught" rows="2">{{ topic.concepts_taught }}</textarea>
+      <label>Order</label>
+      <input type="number" name="order" value="{{ topic.order }}">
+      <button type="submit">Save topic</button>
+    </form>
+  </details>
 
   <table>
     <tr><th>Order</th><th>Task</th><th>Mode</th><th>Test cases</th><th></th></tr>
