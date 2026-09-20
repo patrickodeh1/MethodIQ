@@ -63,21 +63,37 @@ Ground rules:
   given num_str and flag. Do X with them and return Y." Treat `return` the
   same way early topics treat print() - a tool they're told to just use,
   not a concept they need to understand deeply yet.
-- The whitelist of concepts is a hard boundary, not a suggestion. Do not
-  require the student's function BODY to use any Python keyword, built-in,
-  data structure, syntax, or construct outside it, even if it seems like a
-  natural fit for the course's subject matter. (The function signature itself
-  - def, parameters, return - is a provided harness the student fills in, not
-  something they need to have "learned" yet; only the whitelist governs what
-  they must write inside the body.)
+- The whitelist of concepts governs the CORE LOGIC of the task: the actual
+  reasoning/computation the exercise is testing must be fully solvable using
+  only the whitelist. However, a small, single, discoverable stretch just
+  beyond the whitelist is allowed if it's only needed to construct or return
+  the final result (e.g. using + to join two already-computed strings, when
+  operators are only one topic away) - this kind of gap is a reasonable
+  "look this up or ask for help" moment, not a scope violation. Do NOT use
+  this allowance to require a whole extra CONCEPT CATEGORY the student has no
+  exposure to at all (e.g. writing/defining a function themselves, using a
+  data structure like a list/dict when none has been introduced, using a
+  loop or conditional when none has been introduced) - that is still a hard
+  violation. The distinction: one small, nameable operator or built-in a
+  single topic away is fine; an entire untaught category of syntax is not.
 - Avoid built-ins whose behavior is a common beginner "gotcha" unless the
   exercise is specifically teaching that gotcha with an explanation. In
   particular: bool() of any non-empty string or non-zero number is always
   True regardless of its content (bool("False") is True, bool("0") is
   True) - never build an exercise around converting a string or number to
   bool as if it reflects the value's apparent meaning.
-- If the topic's goal cannot be fully achieved within the whitelist, write a
-  smaller exercise that stays completely within it.
+- If the topic's goal cannot be reasonably achieved within the whitelist plus
+  the small-stretch allowance above, write a smaller exercise that stays
+  within it.
+- You will be told which task number this is within the topic, and given a
+  summary of every earlier task already generated for it (title, description,
+  and roughly how much it required). Task 1 in a topic must be small and
+  test a single concept in isolation - a true on-ramp, not a challenge. Every
+  task after the first must be MORE difficult than every earlier task in the
+  topic: combine more of the whitelist together, handle more cases, or
+  require a longer chain of reasoning, while staying within the same
+  whitelist (and the same small-stretch allowance) as the rest of the topic.
+  Do not simply produce a same-difficulty variation with different names.
 - Do not assume knowledge from topics that come later in the course.
 - Match the tone and level of the course/topic descriptions given to you: for
   an absolute-beginner, self-paced course, write a small, concrete, plainly
@@ -309,9 +325,12 @@ def generate_task_draft(
         for t in prior_topics
     ) or "(this is the first topic in the course)"
     generated_history_summary = "\n".join(
-        f"- {task['title']}: {_strip_html(task.get('description', '')) or '(no description)'}"
-        for task in generated_task_history
-    ) or "(no task has previously been generated for this topic)"
+        f"- Task {i+1}: {task['title']} "
+        f"(~{len(_strip_html(task.get('description', '')).split())} words describing it): "
+        f"{_strip_html(task.get('description', '')) or '(no description)'}"
+        for i, task in enumerate(generated_task_history)
+    ) or "(no task has previously been generated for this topic - this will be Task 1)"
+    task_number = len(generated_task_history) + 1
 
     context_prompt = (
         f"Course: {course_name}\n"
@@ -320,11 +339,14 @@ def generate_task_draft(
         f"Current topic: {topic_name}\n"
         f"Current topic description: {_strip_html(topic_description) or '(none)'}\n"
         f"Current topic goal: {stage_goal or '(none)'}\n\n"
-        f"Current topic concepts taught (hard whitelist for the function body; use only these): "
+        f"Current topic concepts taught (whitelist for the function body; use only these, "
+        f"plus the small-stretch allowance described in your instructions): "
         f"{concepts_taught or '(none listed)'}\n\n"
+        f"This will be task number {task_number} in this topic. "
+        f"{'Make it a small, single-concept on-ramp task.' if task_number == 1 else 'It must be more difficult than every task listed below - do not repeat their difficulty level.'}\n\n"
         f"Existing task titles in this topic (do not repeat): {', '.join(existing_task_titles) or '(none)'}\n\n"
-        f"Tasks previously generated for this topic, including deleted tasks "
-        f"(do not repeat; build a different or slightly more advanced task):\n"
+        f"Tasks previously generated for this topic, in order, including deleted ones "
+        f"(do not repeat any of their ideas; task {task_number} must be harder than all of them):\n"
         f"{generated_history_summary}\n"
     )
 

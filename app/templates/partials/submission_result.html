@@ -15,6 +15,8 @@
         {% endif %}
         <div class="muted">Your output</div>
         <pre class="output-value">{{ test.actual if test.actual else '(no output)' }}</pre>
+        <div class="muted">Expected output</div>
+        <pre class="output-value">{{ test.expected if test.expected else '(no output)' }}</pre>
         {% if test.error %}
           <div class="muted">Runtime output</div>
           <pre class="output-value">{{ test.error }}</pre>

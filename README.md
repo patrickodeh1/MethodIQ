@@ -54,9 +54,9 @@ execute the complete Python program in the editor and see its actual output
 without creating a submission. **Verify & submit** runs the configured test
 cases and records the submission only after verification.
 
-Test cases and expected outputs remain private grading data. Students may see
-an example input, but the expected output is never shown on the task page.
-After running or verifying, they see the output produced by their own code.
+Test cases remain private grading data. Students may see an example input, and
+after verification they see both the output produced by their own code and the
+expected output for each verification test.
 AI-generated tasks are designed around private input values rather than
 hard-coded answers. For example, an assignment or conversion task should read
 values through `input()`, process them, and print the result; hidden test cases

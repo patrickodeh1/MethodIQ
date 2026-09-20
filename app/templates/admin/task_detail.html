@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ task.title }}{% endblock %}
-{% block header_right %}<a href="/admin/courses/{{ task.topic.course_id }}" class="btn secondary">Back to course</a>{% endblock %}
+{% block header_right %}<a href="/admin/courses/{{ task.topic.course_id }}" class="btn secondary">← Back to course</a>{% endblock %}
 {% block content %}
 <h1>{{ task.title }}</h1>
 <p class="muted">{{ task.topic.name }} &middot; {{ task.topic.course.name }} &middot; Python program</p>

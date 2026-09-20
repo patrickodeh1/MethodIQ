@@ -19,6 +19,7 @@
   <main class="container">
     {% block content %}{% endblock %}
   </main>
+  <button id="back-to-top" class="back-to-top" type="button" aria-label="Back to top">↑ Top</button>
   <script>
   document.querySelectorAll('.rich-editor').forEach(function (element) {
     const target = document.getElementById(element.dataset.target);
@@ -37,6 +38,18 @@
       target.value = editor.root.innerHTML;
     });
   });
+  </script>
+  <script>
+  (function () {
+    const button = document.getElementById('back-to-top');
+    if (!button) return;
+    window.addEventListener('scroll', function () {
+      button.classList.toggle('visible', window.scrollY > 320);
+    });
+    button.addEventListener('click', function () {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  })();
   </script>
 </body>
 </html>

@@ -49,6 +49,8 @@ textarea.code { width: 100%; min-height: 320px; background: #0b0d12; color: #d7e
 button, .btn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 9px 16px; font-size: 14px; cursor: pointer; text-decoration: none; display: inline-block; }
 button.secondary, .btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
 button.danger { background: var(--bad); }
+.back-to-top { position: fixed; left: 22px; top: 50%; transform: translateY(-50%); z-index: 10; display: none; box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+.back-to-top.visible { display: inline-block; }
 input, textarea, select { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: #0b0d12; color: var(--text); font-size: 14px; margin-bottom: 10px; }
 label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 4px; }
 form.inline { display: inline; }
