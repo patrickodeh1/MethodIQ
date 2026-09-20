@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ topic.name }}{% endblock %}
+{% block header_right %}<a href="/dashboard" class="btn secondary">← Dashboard</a>{% endblock %}
+{% block content %}
+<div class="topic-page-header">
+  <span class="eyebrow">{{ topic.course.name }}</span>
+  <h1>{{ topic.name }}</h1>
+  {% if topic.description %}<div class="rich-content">{{ topic.description|safe }}</div>{% endif %}
+  <span class="muted">{{ completed_count }} of {{ tasks|length }} tasks complete</span>
+</div>
+<div class="topic-task-panel">
+  <div class="section-heading"><div><span class="eyebrow">Topic tasks</span><h2>Work through the tasks</h2></div></div>
+  <div class="topic-task-list">
+    {% for item in tasks %}
+      {% if item.locked %}
+        <div class="topic-task-row task-row-locked">
+      {% else %}
+        <a class="topic-task-row topic-task-link" href="/task/{{ item.task.id }}">
+      {% endif %}
+          <span class="task-number">{{ loop.index }}</span>
+          <div class="topic-task-info">
+            <h3>{{ item.task.title }}</h3>
+            <p class="muted">{{ item.task.description|striptags|truncate(180) }}</p>
+          </div>
+          {% if item.completed %}
+            <span class="badge pass">Completed</span>
+          {% elif item.locked %}
+            <span class="badge locked">Locked</span>
+          {% else %}
+            <span class="task-open-label">Open task <span aria-hidden="true">→</span></span>
+          {% endif %}
+      {% if item.locked %}
+        </div>
+      {% else %}
+        </a>
+      {% endif %}
+    {% else %}
+      <p class="muted">No tasks have been published for this topic yet.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

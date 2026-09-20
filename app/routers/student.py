@@ -138,24 +138,51 @@ def dashboard(request: Request, db: Session = Depends(get_db), page: int = Query
     for course in enrolled_courses:
         topics = []
         previous_in_course_incomplete = False
+        course_tasks = []
         for topic in course.topics:
-            tasks = [
-                {
-                    "task": task,
-                    "completed": task.id in passed_ids,
-                    "locked": False,
-                }
-                for task in topic.tasks
-                if task.published
-            ]
-            for task_view in tasks:
-                task_view["locked"] = previous_in_course_incomplete
-                if not task_view["completed"]:
-                    previous_in_course_incomplete = True
+            tasks = [task for task in topic.tasks if task.published]
+            course_tasks.extend(tasks)
             if tasks:
-                topics.append({"topic": topic, "tasks": tasks})
-        if topics:
-            course_sections.append({"course": course, "topics": topics})
+                completed_count = sum(task.id in passed_ids for task in tasks)
+                active_task = next(
+                    (task for task in tasks if task.id not in passed_ids),
+                    None,
+                )
+                topic_locked = previous_in_course_incomplete
+                topics.append(
+                    {
+                        "topic": topic,
+                        "task_count": len(tasks),
+                        "completed_count": completed_count,
+                        "active_task": active_task if not topic_locked else None,
+                        "locked": topic_locked,
+                    }
+                )
+                if active_task:
+                    previous_in_course_incomplete = True
+        course_completed = sum(task.id in passed_ids for task in course_tasks)
+        course_current_task = next(
+            (task for task in course_tasks if task.id not in passed_ids),
+            None,
+        )
+        course_sections.append(
+            {
+                "course": course,
+                "topics": topics,
+                "task_count": len(course_tasks),
+                "completed_count": course_completed,
+                "progress_pct": round(100 * course_completed / len(course_tasks)) if course_tasks else 0,
+                "current_task": course_current_task,
+            }
+        )
+
+    completed_tasks = [task for task in all_tasks if task.id in passed_ids]
+    history_page_size = 5
+    history_total_pages = max(1, (len(completed_tasks) + history_page_size - 1) // history_page_size)
+    history_page = min(page, history_total_pages)
+    history_page_tasks = completed_tasks[
+        (history_page - 1) * history_page_size:history_page * history_page_size
+    ]
 
     return templates.TemplateResponse(
         "dashboard.html",
@@ -165,7 +192,55 @@ def dashboard(request: Request, db: Session = Depends(get_db), page: int = Query
             "passed_count": len(passed_ids), "total_count": total,
             "all_tasks": all_tasks, "passed_ids": passed_ids,
             "course_sections": course_sections,
+            "history_page_tasks": history_page_tasks,
+            "history_page": history_page,
+            "history_total_pages": history_total_pages,
             "enrolled_courses": enrolled_courses,
+        },
+    )
+
+
+@router.get("/topic/{topic_id}", response_class=HTMLResponse)
+def topic_page(topic_id: int, request: Request, db: Session = Depends(get_db)):
+    student = _require_student(request, db)
+    if not student:
+        return RedirectResponse(url="/login", status_code=303)
+
+    topic = db.query(Topic).get(topic_id)
+    if (
+        not topic
+        or not topic.course.published
+        or topic.course_id not in _enrolled_course_ids(student)
+    ):
+        return RedirectResponse(url="/dashboard", status_code=303)
+
+    passed_ids = {
+        submission.task_id
+        for submission in db.query(Submission).filter(
+            Submission.student_id == student.id,
+            Submission.passed.is_(True),
+        ).all()
+    }
+    tasks = []
+    for task in topic.tasks:
+        if not task.published:
+            continue
+        tasks.append(
+            {
+                "task": task,
+                "completed": task.id in passed_ids,
+                "locked": _task_is_locked(db, task, passed_ids),
+            }
+        )
+
+    return templates.TemplateResponse(
+        "topic.html",
+        {
+            "request": request,
+            "student": student,
+            "topic": topic,
+            "tasks": tasks,
+            "completed_count": sum(item["completed"] for item in tasks),
         },
     )
 

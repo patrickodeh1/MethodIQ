@@ -182,9 +182,23 @@ def staff_home(request: Request, db: Session = Depends(get_db)):
     if guard:
         return guard
     courses = db.query(Course).order_by(Course.order).all()
+    course_sections = []
+    for course in courses:
+        topics = [
+            topic for topic in course.topics
+            if any(task for task in topic.tasks)
+        ]
+        if topics:
+            course_sections.append({"course": course, "topics": topics})
     return templates.TemplateResponse(
         "staff/dashboard.html",
-        {"request": request, "courses": courses, "session": get_admin_session(request)},
+        {
+            "request": request,
+            "courses": courses,
+            "course_sections": course_sections,
+            "students": db.query(Student).order_by(Student.created_at.desc()).all(),
+            "session": get_admin_session(request),
+        },
     )
 
 

@@ -2,53 +2,98 @@
 {% block title %}Dashboard{% endblock %}
 {% block header_right %}<a href="/logout" class="btn secondary">Log out</a>{% endblock %}
 {% block content %}
-<h1>Hi, {{ student.name }}</h1>
-<div class="dashboard-hero">
-  <div><span class="muted">Your progress</span><strong>{{ score_pct }}%</strong><span class="muted">{{ passed_count }} of {{ total_count }} tasks complete</span></div>
-  {% if current_task %}<a class="btn" href="/task/{{ current_task.id }}">Continue learning</a>{% endif %}
+<div class="dashboard-welcome">
+  <div>
+    <span class="eyebrow">Your learning space</span>
+    <h1>Welcome back, {{ student.name }}</h1>
+    <p class="muted">Pick up where you left off and keep building your skills.</p>
+  </div>
+  {% if current_task %}
+    <a class="btn" href="/task/{{ current_task.id }}">Continue learning <span aria-hidden="true">→</span></a>
+  {% endif %}
 </div>
-<div class="card">
-  <h2>My learning roadmap</h2>
+
+<div class="dashboard-stats">
+  <div class="stat-card"><span class="stat-icon">✓</span><div><strong>{{ passed_count }}</strong><span class="muted">Tasks completed</span></div></div>
+  <div class="stat-card"><span class="stat-icon blue">▣</span><div><strong>{{ total_count - passed_count }}</strong><span class="muted">Tasks remaining</span></div></div>
+  <div class="stat-card"><span class="stat-icon purple">◷</span><div><strong>{{ score_pct }}%</strong><span class="muted">Overall progress</span></div></div>
+</div>
+
+<section class="dashboard-section">
+  <div class="section-heading">
+    <div><span class="eyebrow">Your courses</span><h2>Keep learning</h2></div>
+    <span class="muted">{{ course_sections|length }} course{% if course_sections|length != 1 %}s{% endif %}</span>
+  </div>
   {% if course_sections %}
     {% for section in course_sections %}
-      <article class="course-roadmap">
-        <h3>{{ section.course.name }}</h3>
-        <div class="rich-content">{{ section.course.description|safe }}</div>
-        {% for topic_section in section.topics %}
-          <div class="topic-roadmap">
-            <h4>{{ topic_section.topic.order }}. {{ topic_section.topic.name }}</h4>
-            {% if topic_section.topic.description %}
-              <div class="rich-content">{{ topic_section.topic.description|safe }}</div>
-            {% endif %}
-            <ol class="task-list">
-              {% for item in topic_section.tasks %}
-                <li>
-                  <span>
-                    <b>Task {{ loop.index }}:</b>
-                    {% if not item.locked or item.completed %}
-                      <a class="history-title" href="/task/{{ item.task.id }}">{{ item.task.title }}</a>
-                    {% else %}
-                      <span class="muted">{{ item.task.title }}</span>
-                    {% endif %}
-                  </span>
-                  <span>
-                    {% if item.completed %}
-                      <span class="badge pass">completed</span>
-                    {% elif item.locked %}
-                      <span class="badge locked">locked</span>
-                    {% else %}
-                      <span class="badge">next</span>
-                    {% endif %}
-                  </span>
-                </li>
-              {% endfor %}
-            </ol>
+      <article class="course-dashboard-card">
+        <div class="course-heading">
+          <div>
+            <h3>{{ section.course.name }}</h3>
+            <span class="muted">{{ section.completed_count }} of {{ section.task_count }} tasks complete</span>
           </div>
-        {% endfor %}
+          {% if section.current_task %}
+            <a class="btn" href="/task/{{ section.current_task.id }}">Continue course →</a>
+          {% else %}
+            <span class="badge pass">Course completed</span>
+          {% endif %}
+        </div>
+        {% if section.course.description %}
+          <div class="rich-content course-description">{{ section.course.description|safe }}</div>
+        {% endif %}
+        <div class="course-progress">
+          <div class="course-progress-label"><span>Progress</span><b>{{ section.progress_pct }}%</b></div>
+          <div class="progress-track"><span style="width: {{ section.progress_pct }}%"></span></div>
+        </div>
+
+        <div class="topic-list">
+          {% for topic_item in section.topics %}
+            <a class="topic-card {% if topic_item.locked %}topic-locked{% endif %}" href="/topic/{{ topic_item.topic.id }}">
+              <div class="topic-card-main">
+                <div class="topic-card-title">
+                  <span class="topic-status">{% if topic_item.completed_count == topic_item.task_count %}✓{% elif topic_item.locked %}{{ loop.index }}{% else %}▶{% endif %}</span>
+                  <div>
+                    <h4>{{ topic_item.topic.name }}</h4>
+                    <span class="muted">{{ topic_item.completed_count }}/{{ topic_item.task_count }} tasks complete</span>
+                  </div>
+                </div>
+                {% if topic_item.topic.description %}
+                  <div class="topic-card-description rich-content">{{ topic_item.topic.description|striptags|truncate(150) }}</div>
+                {% endif %}
+                {% if topic_item.active_task %}
+                  <span class="active-task">Continue: {{ topic_item.active_task.title }} <span aria-hidden="true">→</span></span>
+                {% elif topic_item.locked %}
+                  <span class="muted">Complete the previous topic to unlock this one</span>
+                {% else %}
+                  <span class="badge pass">Topic completed</span>
+                {% endif %}
+              </div>
+              <span class="topic-chevron" aria-hidden="true">›</span>
+            </a>
+          {% endfor %}
+        </div>
       </article>
     {% endfor %}
   {% else %}
-    <p class="muted">You are not enrolled in any published courses with tasks yet. Ask your administrator to enrol you.</p>
+    <div class="card empty-state"><h3>No courses available yet</h3><p class="muted">Ask your administrator to enrol you in a published course.</p></div>
   {% endif %}
-</div>
+</section>
+
+<section class="dashboard-section card">
+  <div class="section-heading"><div><span class="eyebrow">Your milestones</span><h2>Completed tasks</h2></div><span class="muted">{{ passed_count }} completed</span></div>
+  {% if history_page_tasks %}
+    <ul class="task-list completed-history">
+      {% for task in history_page_tasks %}
+        <li><span><b>{{ task.topic.course.name }}</b><br><span class="muted">{{ task.topic.name }}</span> · <a class="history-title" href="/task/{{ task.id }}">{{ task.title }}</a></span><span class="badge pass">completed</span></li>
+      {% endfor %}
+    </ul>
+    {% if history_total_pages > 1 %}
+      <nav class="pagination" aria-label="Completed task history pages">
+        {% if history_page > 1 %}<a class="btn secondary" href="/dashboard?page={{ history_page - 1 }}">Previous</a>{% endif %}
+        <span class="muted">Page {{ history_page }} of {{ history_total_pages }}</span>
+        {% if history_page < history_total_pages %}<a class="btn secondary" href="/dashboard?page={{ history_page + 1 }}">Next</a>{% endif %}
+      </nav>
+    {% endif %}
+  {% else %}<p class="muted">Completed tasks will appear here as you progress.</p>{% endif %}
+</section>
 {% endblock %}
