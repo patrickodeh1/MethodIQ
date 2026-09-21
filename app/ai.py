@@ -397,7 +397,57 @@ student's exact solution, completed code, a line-by-line patch, the exact
 answer, or code that can be copied to solve the task. Never reveal hidden tests.
 If asked for the answer, politely refuse and give the next smallest hint. You
 may show generic pseudocode or a different example with different names and
-values. Keep responses concise and encourage an attempt first."""
+values. Keep responses concise and encourage an attempt first.
+
+Response format:
+- Use short paragraphs or bullet points.
+- Inline code such as `int()` is allowed.
+- Never use fenced code blocks.
+- Do not write a complete function, a replacement program, or a sequence of
+  exact lines the student can copy."""
+
+
+HINT_REWRITE_PROMPT = """Rewrite the tutor response below into a safe, useful
+clue for the student.
+
+Keep the explanation specific to the student's question, but do not provide
+the exact solution, completed code, a line-by-line patch, the exact answer, or
+any code that can be copied to solve the task. You may keep short inline
+references such as `int()` or `type()`, but never use fenced code blocks.
+Prefer a short explanation, one diagnostic question, and one next step.
+Return only the rewritten tutor response.
+
+Original response:
+"""
+
+
+def _hint_needs_rewrite(answer: str) -> bool:
+    """Detect response shapes that are likely to leak a copyable solution."""
+    if not answer or len(answer) > 3000 or "```" in answer:
+        return True
+    lower = answer.lower()
+    solution_markers = (
+        "here is the corrected code",
+        "here's the corrected code",
+        "complete solution",
+        "replace your code with",
+        "copy and paste",
+        "def solution(",
+    )
+    return any(marker in lower for marker in solution_markers)
+
+
+def _safe_hint_fallback(question: str) -> str:
+    """Keep failures useful without exposing a generic or solution-shaped answer."""
+    question = " ".join((question or "").split())
+    if len(question) > 140:
+        question = question[:137] + "..."
+    return (
+        f"Let’s focus on this part of your question: “{question}” "
+        "First identify the value your code has at that point, then compare "
+        "it with what the task requires. What does `type()` or a small "
+        "temporary print tell you about that value?"
+    )
 
 
 def generate_hint(task_title: str, task_description: str, question: str, code: str, history: list) -> str:
@@ -414,6 +464,24 @@ def generate_hint(task_title: str, task_description: str, question: str, code: s
         ),
     })
     answer = _post(messages, temperature=0.4)
-    if "```" in answer or len(answer) > 3000:
-        return "Try one smaller step: choose one simple input, predict the result, and identify which part of your code should produce it."
+    if _hint_needs_rewrite(answer):
+        rewrite_messages = [
+            {"role": "system", "content": HINT_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": (
+                    HINT_REWRITE_PROMPT
+                    + answer[:6000]
+                    + "\nStudent question for context:\n"
+                    + question[:2000]
+                ),
+            },
+        ]
+        try:
+            rewritten = _post(rewrite_messages, temperature=0.2).strip()
+            if rewritten and not _hint_needs_rewrite(rewritten):
+                return rewritten
+        except RuntimeError:
+            pass
+        return _safe_hint_fallback(question)
     return answer.strip()
