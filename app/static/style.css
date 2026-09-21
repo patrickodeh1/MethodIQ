@@ -133,6 +133,7 @@ form.inline { display: inline; }
 .ai-help-response { border-color: var(--accent); }
 .ai-help-submit:disabled { cursor: wait; opacity: 1; background: #687080; border-color: #687080; color: #eef1f5; }
 .run-code-button:disabled { cursor: wait; opacity: 1; background: #687080; border-color: #687080; color: #eef1f5; }
+#verify-submit-button:disabled { cursor: wait; opacity: 1; background: #687080; border-color: #687080; color: #eef1f5; }
 .loading-dots::after { content: "..."; display: inline-block; width: 1.2em; overflow: hidden; vertical-align: bottom; animation: loading-dots 1.2s steps(4, end) infinite; }
 @keyframes loading-dots { 0% { width: 0; } 33% { width: .4em; } 66% { width: .8em; } 100% { width: 1.2em; } }
 .ai-response-content { line-height: 1.65; margin: 10px 0 14px; }

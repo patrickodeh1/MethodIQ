@@ -32,7 +32,7 @@
     <textarea id="code-editor" class="code" name="code" spellcheck="false">{{ last_submission.code if last_submission else task.starter_code }}</textarea>
     <br><br>
     <button type="button" id="run-code-button" class="run-code-button" hx-post="/task/{{ task.id }}/run" hx-include="#code-editor" hx-target="#run-result" hx-swap="innerHTML">Run code</button>
-    <button type="submit">Verify &amp; submit</button>
+    <button type="submit" id="verify-submit-button">Verify &amp; submit</button>
     <button type="button" class="secondary" hx-get="/task/{{ task.id }}/help" hx-target="#help-panel" hx-swap="innerHTML">Ask for Help</button>
   </form>
   <div id="run-result"></div>
@@ -82,17 +82,24 @@
 </script>
 <script>
 (function () {
+  const verifyButton = document.getElementById('verify-submit-button');
+  if (!verifyButton) return;
   document.body.addEventListener('htmx:beforeRequest', function (event) {
-    if (event.target.id !== 'run-code-button') return;
-    event.target.disabled = true;
-    event.target.classList.add('is-loading');
-    event.target.innerHTML = 'Running code<span class="loading-dots" aria-hidden="true"></span>';
+    if (event.target.id !== 'run-code-button' && event.target.id !== 'submit-form') return;
+    const button = event.target.id === 'submit-form' ? verifyButton : event.target;
+    if (button.disabled) return;
+    button.disabled = true;
+    button.classList.add('is-loading');
+    button.innerHTML = event.target.id === 'submit-form'
+      ? 'Verifying<span class="loading-dots" aria-hidden="true"></span>'
+      : 'Running code<span class="loading-dots" aria-hidden="true"></span>';
   });
   document.body.addEventListener('htmx:afterRequest', function (event) {
-    if (event.target.id !== 'run-code-button') return;
-    event.target.disabled = false;
-    event.target.classList.remove('is-loading');
-    event.target.textContent = 'Run code';
+    if (event.target.id !== 'run-code-button' && event.target.id !== 'submit-form') return;
+    const button = event.target.id === 'submit-form' ? verifyButton : event.target;
+    button.disabled = false;
+    button.classList.remove('is-loading');
+    button.textContent = event.target.id === 'submit-form' ? 'Verify & submit' : 'Run code';
   });
 })();
 </script>
