@@ -117,7 +117,7 @@ def judge_submission(code: str, test_cases: list, entry_function: str = "") -> d
             test_results.append({
                 "number": index,
                 "is_sample": bool(tc.is_sample),
-                "input": tc.input_json if tc.is_sample else "",
+                "input": tc.input_json or "",
                 "actual": "",
                 "expected": tc.expected_json or "",
                 "passed": False,
@@ -145,7 +145,7 @@ def judge_submission(code: str, test_cases: list, entry_function: str = "") -> d
         test_results.append({
             "number": index,
             "is_sample": bool(tc.is_sample),
-            "input": tc.input_json if tc.is_sample else "",
+            "input": tc.input_json or "",
             "actual": actual_output,
             "expected": tc.expected_json or "",
             "passed": is_match,

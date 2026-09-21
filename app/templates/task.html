@@ -18,9 +18,9 @@
   {% if sample_tests %}
     <h3>Example input</h3>
     {% for s in sample_tests %}
-      <div class="error-output">{{ s.input_json if s.input_json else '(no input required)' }}</div>
+      <div class="example-value">{{ s.input_json if s.input_json else '(no input required)' }}</div>
       <p class="muted">Example output</p>
-      <div class="error-output">{{ s.expected_json if s.expected_json else '(no output)' }}</div>
+      <div class="example-value">{{ s.expected_json if s.expected_json else '(no output)' }}</div>
     {% endfor %}
   {% else %}
     <p class="muted">No public example for this task &mdash; read the description carefully and test your logic before submitting.</p>
