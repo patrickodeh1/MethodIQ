@@ -25,7 +25,7 @@
       <label>What did you try, and which part do you not understand?</label>
       <textarea name="question" rows="3" required placeholder="Explain where you are stuck..."></textarea>
       <input type="hidden" name="code" value="">
-      <button type="submit">Get a clue</button>
+      <button type="submit" class="ai-help-submit">Get a clue</button>
     </form>
     <div id="ai-help-response-{{ task.id }}"></div>
   </div>
@@ -43,11 +43,27 @@ function showHelpOption(id, button) {
 </script>
 <script>
 document.body.addEventListener('htmx:afterRequest', function (event) {
+  if (event.target.id === 'ai-help-form-{{ task.id }}') {
+    const button = event.target.querySelector('.ai-help-submit');
+    if (button) {
+      button.disabled = false;
+      button.classList.remove('is-loading');
+      button.textContent = 'Get a clue';
+    }
+  }
   if (event.detail.successful && event.target.id === 'ai-help-form-{{ task.id }}') {
     event.target.reset();
     const code = document.querySelector('textarea.code');
     const hiddenCode = event.target.querySelector('input[name="code"]');
     if (hiddenCode && code) hiddenCode.value = code.value;
   }
+});
+document.body.addEventListener('htmx:beforeRequest', function (event) {
+  if (event.target.id !== 'ai-help-form-{{ task.id }}') return;
+  const button = event.target.querySelector('.ai-help-submit');
+  if (!button || button.disabled) return;
+  button.disabled = true;
+  button.classList.add('is-loading');
+  button.innerHTML = 'Getting clue<span class="loading-dots" aria-hidden="true"></span>';
 });
 </script>

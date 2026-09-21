@@ -24,7 +24,7 @@
       <h3>Student prompt</h3>
       <p style="white-space:pre-wrap;">{{ prompt.question }}</p>
       <h3>AI response</h3>
-      <p style="white-space:pre-wrap;">{{ prompt.response }}</p>
+      <div class="ai-response-content">{{ prompt.response|ai_response }}</div>
     </div>
   {% else %}<p class="muted">This student has no AI prompts yet.</p>{% endfor %}
 {% endif %}

@@ -130,6 +130,15 @@ form.inline { display: inline; }
 .help-option.selected { border-color: var(--accent); color: var(--accent); }
 .help-choice { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
 .ai-help-response { border-color: var(--accent); }
+.ai-help-submit:disabled { cursor: wait; opacity: 1; background: #687080; border-color: #687080; color: #eef1f5; }
+.run-code-button:disabled { cursor: wait; opacity: 1; background: #687080; border-color: #687080; color: #eef1f5; }
+.loading-dots::after { content: "..."; display: inline-block; width: 1.2em; overflow: hidden; vertical-align: bottom; animation: loading-dots 1.2s steps(4, end) infinite; }
+@keyframes loading-dots { 0% { width: 0; } 33% { width: .4em; } 66% { width: .8em; } 100% { width: 1.2em; } }
+.ai-response-content { line-height: 1.65; margin: 10px 0 14px; }
+.ai-response-content p { margin: 0 0 10px; }
+.ai-response-content ul { margin: 0 0 12px; padding-left: 22px; }
+.ai-response-content li { margin: 5px 0; }
+.ai-response-content code { padding: 2px 5px; border-radius: 4px; background: rgba(91,141,239,.14); color: #a9c7ff; font: .92em monospace; }
 .audit-table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); font-size: 14px; }
