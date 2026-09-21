@@ -42,5 +42,9 @@ def get_admin_session(request: Request):
     return read_token(request.cookies.get(ADMIN_COOKIE))
 
 
+def clear_cookie(response, cookie_name: str):
+    response.delete_cookie(cookie_name, path="/")
+
+
 def password_hash(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()

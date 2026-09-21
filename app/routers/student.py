@@ -7,7 +7,10 @@ from sqlalchemy import asc
 
 from app.database import get_db
 from app.models import Student, Task, Topic, Submission, AIHelpRequest, StudentEnrollment
-from app.auth import make_token, get_current_student_id, STUDENT_COOKIE, SESSION_MAX_AGE
+from app.auth import (
+    make_token, get_current_student_id, get_admin_session,
+    STUDENT_COOKIE, ADMIN_COOKIE, SESSION_MAX_AGE, clear_cookie,
+)
 from app.judge import judge_submission, run_code
 from app.templates_env import templates
 from app.phone import normalize_phone_number
@@ -107,13 +110,14 @@ def login_submit(request: Request, phone_number: str = Form(...), db: Session = 
     token = make_token({"student_id": student.id})
     resp = RedirectResponse(url="/dashboard", status_code=303)
     resp.set_cookie(STUDENT_COOKIE, token, max_age=SESSION_MAX_AGE, httponly=True)
+    clear_cookie(resp, ADMIN_COOKIE)
     return resp
 
 
 @router.get("/logout")
 def logout():
     resp = RedirectResponse(url="/login", status_code=303)
-    resp.delete_cookie("student_session")
+    clear_cookie(resp, STUDENT_COOKIE)
     return resp
 
 
@@ -126,6 +130,12 @@ def _require_student(request: Request, db: Session):
 
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db), page: int = Query(1, ge=1)):
+    admin_session = get_admin_session(request)
+    if admin_session:
+        return RedirectResponse(
+            url="/staff" if admin_session.get("role") == "staff" else "/admin",
+            status_code=303,
+        )
     student = _require_student(request, db)
     if not student:
         return RedirectResponse(url="/login", status_code=303)

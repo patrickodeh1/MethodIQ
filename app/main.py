@@ -44,6 +44,19 @@ def _should_audit_request(path: str, method: str) -> bool:
 @app.middleware("http")
 async def audit_requests(request: Request, call_next):
     response = await call_next(request)
+    if (
+        request.url.path == "/dashboard"
+        or request.url.path.startswith("/task/")
+        or request.url.path.startswith("/topic/")
+        or request.url.path == "/admin"
+        or request.url.path.startswith("/admin/")
+        or request.url.path == "/staff"
+        or request.url.path.startswith("/staff/")
+    ):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        response.headers["Vary"] = "Cookie"
     if _should_audit_request(request.url.path, request.method):
         admin_session = get_admin_session(request)
         student_id = get_current_student_id(request)
@@ -107,5 +120,13 @@ async def unhandled_error_handler(request: Request, exc: Exception):
 
 
 @app.get("/")
-def root():
-    return RedirectResponse(url="/dashboard")
+def root(request: Request):
+    admin_session = get_admin_session(request)
+    if admin_session:
+        return RedirectResponse(
+            url="/staff" if admin_session.get("role") == "staff" else "/admin",
+            status_code=303,
+        )
+    if get_current_student_id(request):
+        return RedirectResponse(url="/dashboard", status_code=303)
+    return RedirectResponse(url="/login", status_code=303)

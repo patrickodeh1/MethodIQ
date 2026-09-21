@@ -11,7 +11,10 @@ from app.models import (
     AuditLog, AIHelpRequest, AITaskGenerationHistory,
 )
 from app.config import ADMIN_USERNAME, ADMIN_PASSWORD, GROQ_API_KEY
-from app.auth import make_token, is_admin, is_staff, get_admin_session, ADMIN_COOKIE, SESSION_MAX_AGE, password_hash
+from app.auth import (
+    make_token, is_admin, is_staff, get_admin_session, ADMIN_COOKIE,
+    STUDENT_COOKIE, SESSION_MAX_AGE, password_hash, clear_cookie,
+)
 from app.templates_env import templates
 from app.ai import generate_task_draft
 from app.phone import normalize_phone_number
@@ -43,12 +46,14 @@ def admin_login_submit(request: Request, username: str = Form(...), password: st
         token = make_token({"admin": True, "role": "admin", "permissions": ["*"]})
         resp = RedirectResponse(url="/admin", status_code=303)
         resp.set_cookie(ADMIN_COOKIE, token, max_age=SESSION_MAX_AGE, httponly=True)
+        clear_cookie(resp, STUDENT_COOKIE)
         return resp
     staff = db.query(StaffUser).filter(StaffUser.username == username, StaffUser.active.is_(True)).first()
     if staff and staff.password_hash == password_hash(password):
         token = make_token({"role": "staff", "staff_id": staff.id})
         resp = RedirectResponse(url="/staff", status_code=303)
         resp.set_cookie(ADMIN_COOKIE, token, max_age=SESSION_MAX_AGE, httponly=True)
+        clear_cookie(resp, STUDENT_COOKIE)
         return resp
     return templates.TemplateResponse("admin/login.html", {"request": request, "error": "Invalid credentials."})
 
@@ -56,7 +61,7 @@ def admin_login_submit(request: Request, username: str = Form(...), password: st
 @router.get("/logout")
 def admin_logout():
     resp = RedirectResponse(url="/admin/login", status_code=303)
-    resp.delete_cookie("admin_session")
+    clear_cookie(resp, ADMIN_COOKIE)
     return resp
 
 
